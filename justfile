@@ -4,6 +4,7 @@ format:
 test:
     npm run type-check
     npm run lint
+    npm run test
 
 build: test
     npm run build
