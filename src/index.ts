@@ -1,7 +1,7 @@
 import { createOctokit } from "./octokit-factory.js"
-import { fetchPullRequests } from "./pull-requests";
-import {Octokit} from "octokit";
-import {fetchReleases} from "./releases";
+import { fetchPullRequests } from "./pull-requests"
+import {Octokit} from "octokit"
+import {fetchReleases} from "./releases"
 
 await main()
 

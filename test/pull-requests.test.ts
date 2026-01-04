@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { Octokit } from "octokit"
-import { fetchPullRequestsSlow } from "../src/pull-requests"
+import { fetchPullRequests } from "../src/pull-requests"
 import type { PullRequest } from "../src/pull-requests"
 
 describe("fetchPullRequests", () => {
@@ -8,13 +8,13 @@ describe("fetchPullRequests", () => {
   let mockGraphQL: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    const mock = createOctokitGraphQL()
+    const mock = createOctokit()
     octokit = mock.octokit
     mockGraphQL = mock.mockGraphQL
   })
 
   it("should handle no pull requests", async () => {
-    mockGraphQLSinglePageResponse(mockGraphQL, [])
+    mockSinglePageResponse(mockGraphQL, [])
 
     const prs = await collectPullRequests(octokit, "test-owner", "test-repo", "main")
 
@@ -23,8 +23,8 @@ describe("fetchPullRequests", () => {
   })
 
   it("should fetch single page of pull requests", async () => {
-    const mockCommits = createGraphQLCommits(10, 0, 1) // 10 commits, each with 1 PR
-    mockGraphQLSinglePageResponse(mockGraphQL, mockCommits)
+    const mockPRs = createPRs(10, 0)
+    mockSinglePageResponse(mockGraphQL, mockPRs)
 
     const prs = await collectPullRequests(octokit, "test-owner", "test-repo", "main", 100)
 
@@ -32,25 +32,11 @@ describe("fetchPullRequests", () => {
     expect(mockGraphQL).toHaveBeenCalledTimes(1)
   })
 
-  it("should handle multiple PRs per commit", async () => {
-    const mockCommits = createGraphQLCommits(5, 0, 3) // 5 commits, each with 3 PRs
-    mockGraphQLSinglePageResponse(mockGraphQL, mockCommits)
-
-    const prs = await collectPullRequests(octokit, "test-owner", "test-repo", "main", 100)
-
-    expect(prs).toHaveLength(15) // 5 commits × 3 PRs
-    expect(mockGraphQL).toHaveBeenCalledTimes(1)
-  })
-
   it("should handle commits with no PRs", async () => {
-    const mockCommits = [
-      createGraphQLCommit({ oid: "abc123", prs: [] }),
-      createGraphQLCommit({ oid: "def456", prs: [
-        createGraphQLPR({ number: 1, title: "PR 1" })
-      ]}),
-      createGraphQLCommit({ oid: "ghi789", prs: [] })
+    const mockPRs = [
+      createPR({ number: 1, title: "PR 1", oid: "def456" })
     ]
-    mockGraphQLSinglePageResponse(mockGraphQL, mockCommits)
+    mockSinglePageResponse(mockGraphQL, mockPRs)
 
     const prs = await collectPullRequests(octokit, "test-owner", "test-repo", "main", 100)
 
@@ -61,11 +47,11 @@ describe("fetchPullRequests", () => {
   })
 
   it("should not fetch next page when not enough PRs are consumed", async () => {
-    const mockCommitsPage1 = createGraphQLCommits(30, 0, 1)
-    mockGraphQLSinglePageResponse(mockGraphQL, mockCommitsPage1)
+    const page1 = createPRs(30, 0)
+    mockSinglePageResponse(mockGraphQL, page1)
 
     let count = 0
-    for await (const _ of fetchPullRequestsSlow(octokit, "test-owner", "test-repo", "main", 100)) {
+    for await (const _ of fetchPullRequests(octokit, "test-owner", "test-repo", "main", 100)) {
       count++
       if (count === 10) {
         break // Stop early
@@ -77,31 +63,27 @@ describe("fetchPullRequests", () => {
   })
 
   it("should fetch next page when all PRs from current page are consumed", async () => {
-    const mockCommitsPage1 = createGraphQLCommits(30, 0, 1)
-    const mockCommitsPage2 = createGraphQLCommits(20, 30, 1)
-    mockGraphQLPaginatedResponse(mockGraphQL, [mockCommitsPage1, mockCommitsPage2])
+    const page1 = createPRs(30, 0)
+    const page2 = createPRs(20, 30)
+    mockPaginatedResponse(mockGraphQL, [page1, page2])
 
     const prs = await collectPullRequests(octokit, "test-owner", "test-repo", "main", 30)
 
-    expect(prs).toHaveLength(50) // 30 + 20 commits, each with 1 PR
+    expect(prs).toHaveLength(50) // 30 + 20 PRs
     expect(mockGraphQL).toHaveBeenCalledTimes(2)
   })
 
   it("should map PR fields correctly", async () => {
-    const mockCommits = [
-      createGraphQLCommit({
-        oid: "abc123def456",
-        prs: [
-          createGraphQLPR({
-            title: "Fix bug in feature X",
-            number: 42,
-            baseRefName: "main",
-            merged: true
-          })
-        ]
+    const mockPRs = [
+      createPR({
+        title: "Fix bug in feature X",
+        number: 42,
+        baseRefName: "main",
+        mergedAt: "2026-01-01T12:00:00Z",
+        oid: "abc123def456"
       })
     ]
-    mockGraphQLSinglePageResponse(mockGraphQL, mockCommits)
+    mockSinglePageResponse(mockGraphQL, mockPRs)
 
     const prs = await collectPullRequests(octokit, "test-owner", "test-repo", "main")
 
@@ -110,18 +92,18 @@ describe("fetchPullRequests", () => {
       title: "Fix bug in feature X",
       number: 42,
       baseRefName: "main",
-      merged: true,
+      mergedAt: "2026-01-01T12:00:00Z",
       oid: "abc123def456"
     })
   })
 
   it("should handle GraphQL errors", async () => {
-    mockGraphQL.mockRejectedValueOnce(new Error("GraphQL rate limit exceeded"))
+    mockGraphQL.mockRejectedValueOnce(new Error("Rate limit exceeded"))
 
     // Should throw before yielding any PRs
     // noinspection ES6RedundantAwait
     await expect(collectPullRequests(octokit, "test-owner", "test-repo", "main"))
-        .rejects.toThrow("GraphQL rate limit exceeded")
+        .rejects.toThrow("Rate limit exceeded")
 
     expect(mockGraphQL).toHaveBeenCalledTimes(1)
   })
@@ -138,12 +120,12 @@ describe("fetchPullRequests", () => {
   })
 
   it("should yield PRs lazily", async () => {
-    const mockCommitsPage1 = createGraphQLCommits(100, 0, 1)
-    const mockCommitsPage2 = createGraphQLCommits(100, 100, 1)
-    mockGraphQLPaginatedResponse(mockGraphQL, [mockCommitsPage1, mockCommitsPage2])
+    const page1 = createPRs(100, 0)
+    const page2 = createPRs(100, 100)
+    mockPaginatedResponse(mockGraphQL, [page1, page2])
 
     let count = 0
-    for await (const pr of fetchPullRequestsSlow(octokit, "test-owner", "test-repo", "main", 100)) {
+    for await (const pr of fetchPullRequests(octokit, "test-owner", "test-repo", "main", 100)) {
       count++
       expect(pr.number).toBeDefined()
       if (count === 50) {
@@ -156,86 +138,51 @@ describe("fetchPullRequests", () => {
     expect(mockGraphQL).toHaveBeenCalledTimes(1)
   })
 
-  it("should preserve oid for each PR from the same commit", async () => {
-    const mockCommits = [
-      createGraphQLCommit({
-        oid: "commit1",
-        prs: [
-          createGraphQLPR({ number: 1, title: "PR 1" }),
-          createGraphQLPR({ number: 2, title: "PR 2" }),
-          createGraphQLPR({ number: 3, title: "PR 3" })
-        ]
-      })
-    ]
-    mockGraphQLSinglePageResponse(mockGraphQL, mockCommits)
-
-    const prs = await collectPullRequests(octokit, "test-owner", "test-repo", "main")
-
-    expect(prs).toHaveLength(3)
-    expect(prs[0].oid).toBe("commit1")
-    expect(prs[1].oid).toBe("commit1")
-    expect(prs[2].oid).toBe("commit1")
-  })
 })
 
 // Test helpers
 
-interface GitHubGraphQLPR {
+interface GitHubPR {
   title: string
   number: number
   baseRefName: string
-  merged: boolean
-}
-
-interface GitHubGraphQLCommit {
-  oid: string
-  associatedPullRequests: {
-    nodes: GitHubGraphQLPR[]
+  mergedAt: string
+  mergeCommit: {
+    oid: string
   }
 }
 
-function createGraphQLPR(overrides: Partial<GitHubGraphQLPR> = {}): GitHubGraphQLPR {
+function createPR(overrides: Partial<GitHubPR> & { oid?: string } = {}): GitHubPR {
+  const oid = overrides.oid ?? "abc123"
+  // Remove oid from overrides as it's not a direct property
+  const { oid: _, ...prOverrides } = overrides
+
   return {
     title: "Test PR",
     number: 1,
     baseRefName: "main",
-    merged: true,
-    ...overrides
+    mergedAt: "2026-01-01T00:00:00Z",
+    mergeCommit: {
+      oid
+    },
+    ...prOverrides
   }
 }
 
-function createGraphQLCommit(overrides: { oid?: string; prs?: GitHubGraphQLPR[] } = {}): GitHubGraphQLCommit {
-  const oid = overrides.oid ?? "abc123"
-  const prs = overrides.prs ?? [createGraphQLPR()]
-
-  return {
-    oid,
-    associatedPullRequests: {
-      nodes: prs
-    }
-  }
-}
-
-function createGraphQLCommits(count: number, startIndex = 0, prsPerCommit = 1): GitHubGraphQLCommit[] {
+function createPRs(count: number, startIndex = 0): GitHubPR[] {
   return Array.from({ length: count }, (_, i) => {
-    const commitIndex = startIndex + i
-    const prs = Array.from({ length: prsPerCommit }, (_, prIndex) =>
-      createGraphQLPR({
-        number: commitIndex * 10 + prIndex + 1,
-        title: `PR ${commitIndex * 10 + prIndex + 1}`,
-        baseRefName: "main",
-        merged: true
-      })
-    )
-
-    return createGraphQLCommit({
-      oid: `commit_${commitIndex}`,
-      prs
+    const prIndex = startIndex + i
+    return createPR({
+      number: prIndex + 1,
+      title: `PR ${prIndex + 1}`,
+      baseRefName: "main",
+      mergedAt: "2026-01-01T00:00:00Z",
+      oid: `commit_${prIndex}`
     })
   })
 }
 
-function createOctokitGraphQL(): { octokit: Octokit; mockGraphQL: ReturnType<typeof vi.fn> } {
+function createOctokit(): { octokit: Octokit; mockGraphQL: ReturnType<typeof vi.fn> } {
   const octokit = new Octokit({
     auth: "test-token"
   })
@@ -246,9 +193,16 @@ function createOctokitGraphQL(): { octokit: Octokit; mockGraphQL: ReturnType<typ
   return { octokit, mockGraphQL }
 }
 
-function mockGraphQLPaginatedResponse(
+function mockSinglePageResponse(
     mockGraphQL: ReturnType<typeof vi.fn>,
-    pages: GitHubGraphQLCommit[][]
+    data: GitHubPR[]
+): void {
+  mockPaginatedResponse(mockGraphQL, [data])
+}
+
+function mockPaginatedResponse(
+    mockGraphQL: ReturnType<typeof vi.fn>,
+    pages: GitHubPR[][]
 ): void {
   pages.forEach((pageData, index) => {
     const hasNextPage = index < pages.length - 1
@@ -256,27 +210,16 @@ function mockGraphQLPaginatedResponse(
 
     mockGraphQL.mockResolvedValueOnce({
       repository: {
-        ref: {
-          target: {
-            history: {
-              nodes: pageData,
-              pageInfo: {
-                hasNextPage,
-                endCursor
-              }
-            }
+        pullRequests: {
+          nodes: pageData,
+          pageInfo: {
+            hasNextPage,
+            endCursor
           }
         }
       }
     })
   })
-}
-
-function mockGraphQLSinglePageResponse(
-    mockGraphQL: ReturnType<typeof vi.fn>,
-    data: GitHubGraphQLCommit[]
-): void {
-  mockGraphQLPaginatedResponse(mockGraphQL, [data])
 }
 
 async function collectPullRequests(
@@ -287,7 +230,7 @@ async function collectPullRequests(
     perPage?: number,
     limit?: number
 ): Promise<PullRequest[]> {
-  return collectAsync(fetchPullRequestsSlow(octokit, owner, repo, branch, perPage), limit)
+  return collectAsync(fetchPullRequests(octokit, owner, repo, branch, perPage), limit)
 }
 
 async function collectAsync<T>(source: AsyncIterable<T>, limit?: number): Promise<T[]> {

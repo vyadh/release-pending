@@ -1,5 +1,7 @@
 import { Octokit } from "octokit"
 
+const DEFAULT_PER_PAGE = 30
+
 /**
  * Represents a GitHub Release with the fields needed for the action
  */
@@ -24,14 +26,12 @@ export async function* fetchReleases(
   perPage?: number
 ): AsyncGenerator<Release, void, undefined> {
 
-  const per_page = perPage ?? 30
-
   for await (const response of octokit.paginate.iterator(
     octokit.rest.repos.listReleases,
     {
-      owner,
-      repo,
-      per_page
+      owner: owner,
+      repo: repo,
+      per_page: perPage ?? DEFAULT_PER_PAGE
     }
   )) {
     // Yield each release one at a time
