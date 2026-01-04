@@ -2,6 +2,24 @@
 format:
     npm run format
 
+[group("update")]
+update:
+    just update-command "npm audit fix --force"
+
+[group("update")]
+update-all:
+    just update-command "ncu --upgrade"
+
+[group("update")]
+[private]
+update-command command:
+    npm outdated || true
+    rm -rf node_modules package-lock.json
+    npm install
+    bash -c "{{command}}"
+    npm install
+    npm outdated || true
+
 
 [group("ci")]
 build: test
@@ -23,7 +41,7 @@ test-workflow:
 [group("proxy")]
 proxy-start:
     NODE_DEBUG=net,http,https,tls \
-    npx proxy -p 8080
+    proxy -p 8080
 
 [group("proxy")]
 proxy-test owner repo : build

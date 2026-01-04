@@ -17,13 +17,15 @@
     "octokit": "^5.0.5"
   },
   "devDependencies": {
-    "@types/node": "^24.10.4",
+    "@types/node": "^25.0.3",
     "@typescript-eslint/eslint-plugin": "^8.51.0",
     "@typescript-eslint/parser": "^8.51.0",
     "esbuild": "^0.27.2",
     "eslint": "^9.39.2",
+    "npm-check-updates": "^19.3.0",
     "prettier": "^3.7.4",
-    "typescript": "^5.5.3",
+    "proxy": "^2.2.0",
+    "typescript": "^5.9.3",
     "vitest": "^4.0.16"
   },
   "private": true
