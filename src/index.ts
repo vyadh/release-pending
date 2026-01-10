@@ -22,11 +22,14 @@ async function main() {
 
     const [command] = args
     switch (command) {
-        case "pulls":
-            await showPullRequests(octokit, args.slice(1))
+        case "simulate":
+            await simulate(octokit, args.slice(1))
             break
         case "releases":
             await showReleases(octokit, args.slice(1))
+            break
+        case "pulls":
+            await showPullRequests(octokit, args.slice(1))
             break
         default:
             console.error(`Unknown command: ${command}`)
@@ -34,22 +37,46 @@ async function main() {
     }
 }
 
-async function showPullRequests(octokit: Octokit, args: string[]) {
-    if (args.length < 4) {
-        console.error("Usage: node dist/index.js pulls <owner> <repo> <branch> <mergedSince>")
+async function simulate(octokit: Octokit, args: string[]) {
+    if (args.length < 3) {
+        console.error("Usage: node dist/index.js simulate <owner> <repo> <branch>")
         process.exit(1)
     }
-    const [owner, repo, branch, mergedSinceString] = args
-    const mergedSince = new Date(mergedSinceString)
+    const [owner, repo, branch] = args
 
-    try {
-        console.log(`Fetching pull requests for ${owner}/${repo}@${branch} after ${mergedSince.toISOString()}...`)
-        for await (const pr of fetchPullRequests(octokit, owner, repo, branch, mergedSince)) {
-            console.log(pr)
+    const releases = fetchReleases(octokit, owner, repo)
+    const lastDraft = await releases.findLastDraft(branch)
+    const lastRelease = await releases.findLast(branch)
+
+    console.log(`Draft:`, lastDraft)
+    console.log(`Last Release:`, lastRelease)
+
+    const mergedSince = lastRelease ? lastRelease.publishedAt : null
+    const pulls = fetchPullRequests(octokit, owner, repo, branch, mergedSince)
+
+    console.log("Pull Requests:")
+    const collectedPRs = []
+    for await (const pr of pulls) {
+        console.log(pr)
+        collectedPRs.push(pr)
+    }
+
+    if (collectedPRs.length > 0) {
+        if (lastRelease) {
+            if (lastDraft) {
+                console.log("Draft release will be updated from last release")
+            } else {
+                console.log("Draft release will be created")
+            }
+        } else {
+            if (lastDraft) {
+                console.log("Draft release will be update with a placeholder '0.1.0' version")
+            } else {
+                console.log("Draft release will be created with a placeholder '0.1.0' version")
+            }
         }
-    } catch (error) {
-        console.error("Error fetching pull requests:", error)
-        process.exit(1)
+    } else {
+        console.log("Since there are no outstanding PRs, a draft release will neither be created or updated")
     }
 }
 
@@ -70,6 +97,25 @@ async function showReleases(octokit: Octokit, args: string[]) {
         console.log(await releases.findLast("main"))
     } catch (error) {
         console.error("Error fetching releases:", error)
+        process.exit(1)
+    }
+}
+
+async function showPullRequests(octokit: Octokit, args: string[]) {
+    if (args.length < 4) {
+        console.error("Usage: node dist/index.js pulls <owner> <repo> <branch> <mergedSince>")
+        process.exit(1)
+    }
+    const [owner, repo, branch, mergedSinceString] = args
+    const mergedSince = new Date(mergedSinceString)
+
+    try {
+        console.log(`Fetching pull requests for ${owner}/${repo}@${branch} after ${mergedSince.toISOString()}...`)
+        for await (const pr of fetchPullRequests(octokit, owner, repo, branch, mergedSince)) {
+            console.log(pr)
+        }
+    } catch (error) {
+        console.error("Error fetching pull requests:", error)
         process.exit(1)
     }
 }
