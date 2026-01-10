@@ -74,11 +74,11 @@ export function fetchPullRequests(
     owner: string,
     repo: string,
     baseRefName: string,
-    mergedAfter: Date,
+    mergedSince: Date,
     perPage?: number
 ): PullRequests {
     return new PullRequests(
-        createPullRequestsGenerator(octokit, owner, repo, baseRefName, mergedAfter, perPage)
+        createPullRequestsGenerator(octokit, owner, repo, baseRefName, mergedSince, perPage)
     )
 }
 
@@ -87,7 +87,7 @@ async function* createPullRequestsGenerator(
     owner: string,
     repo: string,
     baseRefName: string,
-    mergedAfter: Date,
+    mergedSince: Date,
     perPage?: number
 ): AsyncGenerator<PullRequest, void, undefined> {
 
@@ -110,8 +110,8 @@ async function* createPullRequestsGenerator(
         const pageInfo = response.repository.pullRequests.pageInfo
 
         for (const pr of pulls) {
-            let pullRequest = mapPullRequest(pr);
-            if (pullRequest.mergedAt < mergedAfter) {
+            const pullRequest = mapPullRequest(pr)
+            if (pullRequest.mergedAt < mergedSince) {
                 // PRs are ordered by UPDATED_AT DESC. We can infer that all subsequent PRs will have an
                 // updated date same or greater than their merged date. Therefore, we can stop pagination
                 // for PRs merged before our selected merge date.

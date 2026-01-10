@@ -6,6 +6,7 @@ import type { PullRequest } from "../src/pull-requests"
 describe("fetchPullRequests", () => {
   let octokit: Octokit
   let mockGraphQL: ReturnType<typeof vi.fn>
+  const inclusiveMergedAt = new Date("2025-01-01");
 
   beforeEach(() => {
     const mock = createOctokit()
@@ -138,8 +139,8 @@ describe("fetchPullRequests", () => {
     expect(mockGraphQL).toHaveBeenCalledTimes(1)
   })
 
-  it("should include PRs merged at or after mergedAfter date", async () => {
-    const mergedAfter = new Date("2026-01-05T00:00:00Z")
+  it("should include PRs merged at or after mergedSince date", async () => {
+    const mergedSince = new Date("2026-01-05T00:00:00Z")
     const mockPRs = [
       createPR({ number: 1, title: "PR 1", mergedAt: "2026-01-10T00:00:00Z", oid: "commit_1" }),
       createPR({ number: 2, title: "PR 2", mergedAt: "2026-01-05T00:00:00Z", oid: "commit_2" }),
@@ -148,7 +149,7 @@ describe("fetchPullRequests", () => {
     ]
     mockSinglePageResponse(mockGraphQL, mockPRs)
 
-    const prs = await collectPullRequests(octokit, "test-owner", "test-repo", "main", mergedAfter)
+    const prs = await collectPullRequests(octokit, "test-owner", "test-repo", "main", mergedSince)
 
     expect(prs).toHaveLength(3)
     expect(prs[0].number).toBe(1)
@@ -157,8 +158,8 @@ describe("fetchPullRequests", () => {
     expect(mockGraphQL).toHaveBeenCalledTimes(1)
   })
 
-  it("should stop paging when first PR before mergedAfter date is found", async () => {
-    const mergedAfter = new Date("2026-01-05T00:00:00Z")
+  it("should stop paging when first PR before mergedSince date is found", async () => {
+    const mergedSince = new Date("2026-01-05T00:00:00Z")
     const page1 = [
       createPR({ number: 1, title: "PR 1", mergedAt: "2026-01-10T00:00:00Z", oid: "commit_1" }),
       createPR({ number: 2, title: "PR 2", mergedAt: "2026-01-06T00:00:00Z", oid: "commit_2" }),
@@ -169,7 +170,7 @@ describe("fetchPullRequests", () => {
     ]
     mockPaginatedResponse(mockGraphQL, [page1, page2])
 
-    const prs = await collectPullRequests(octokit, "test-owner", "test-repo", "main", mergedAfter)
+    const prs = await collectPullRequests(octokit, "test-owner", "test-repo", "main", mergedSince)
 
     // Should only yield PRs 1 and 2, and stop when PR 3 (before cutoff) is encountered
     expect(prs).toHaveLength(2)
@@ -209,8 +210,6 @@ function createPR(overrides: Partial<GitHubPR> & { oid?: string } = {}): GitHubP
     ...prOverrides
   }
 }
-
-let inclusiveMergedAt = new Date("2025-01-01");
 
 function createPRs(count: number, startIndex = 0): GitHubPR[] {
   return Array.from({ length: count }, (_, i) => {
@@ -270,11 +269,11 @@ async function collectPullRequests(
     owner: string,
     repo: string,
     branch: string,
-    mergedAfter: Date,
+    mergedSince: Date,
     perPage?: number,
     limit?: number
 ): Promise<PullRequest[]> {
-  return collectAsync(fetchPullRequests(octokit, owner, repo, branch, mergedAfter, perPage), limit)
+  return collectAsync(fetchPullRequests(octokit, owner, repo, branch, mergedSince, perPage), limit)
 }
 
 async function collectAsync<T>(source: AsyncIterable<T>, limit?: number): Promise<T[]> {

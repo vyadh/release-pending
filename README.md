@@ -79,12 +79,12 @@ Note also that `contents: write` is required to read non-public(?) draft release
 
 ## Proxy Support
 
-Since Node 24+ supports a proxy natively by is not enabled by default. It cannot be enabled internally to this action, but can be enabled by setting `NODE_USE_ENV_PROXY=1` on the GitHub runner or an environment variable in the workflow that calls the action. See [Node.js docs](https://nodejs.org/api/cli.html#node_use_env_proxy1) for more information.
+Since Node 24+ supports a proxy natively but is not enabled by default. It cannot be enabled internally to this action, but can be enabled by setting `NODE_USE_ENV_PROXY=1` on the GitHub runner or an environment variable in the workflow that calls the action. See [Node.js docs](https://nodejs.org/api/cli.html#node_use_env_proxy1) for more information.
 
 
 ## Comparisons with Other Tools
 
-This action was born out of an attempt to adopt [Release Drafter](https://github.com/release-drafter/release-drafter), which appears to be unmaintained with various security PRs not being actioned. Forking was attempted but updating the dependencies was difficult due to various breaking changes. It seemed better to start afresh with a more efficient implementation that works with GitHub's own release notes generation and from contentional commit PR titles.
+This action was born out of an attempt to adopt [Release Drafter](https://github.com/release-drafter/release-drafter), which appears to be unmaintained with various security PRs not being actioned. Forking was attempted but updating the dependencies was difficult due to various breaking changes. It seemed better to start afresh with a more efficient implementation that works with GitHub's own release notes generation and from conventional commit PR titles.
 
 [Semantic Release](https://github.com/semantic-release/semantic-release) is a comprehensive and well maintained toolkit for release and version generation that works with the commit history to generate versions. Release Party relies on PR titles and branch names, which improves efficiency and allows versions to be generated for any branch. This also makes it suitable for organizations that do not universally adopt conventional commits. It also benefits from a smaller attack surface due to its minimal dependencies.
 

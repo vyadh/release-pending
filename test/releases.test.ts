@@ -81,13 +81,14 @@ describe("fetchReleases", () => {
     expect(mockRequest).toHaveBeenCalledTimes(1)
   })
 
-  it("should map draft releases with null tag_name", async () => {
+  it("should map draft releases appropriately", async () => {
     const mockReleases = [
       createRelease({
         id: 1,
         tag_name: "v1.0.0",
         name: "Draft Release",
         body: "This is a draft",
+        published_at: "2026-01-01T12:13:14.000Z",
         draft: true
       }),
       createRelease({
@@ -103,8 +104,12 @@ describe("fetchReleases", () => {
     const releases = await collectReleases(octokit, "test-owner", "test-repo")
 
     expect(releases).toHaveLength(2)
+    expect(releases[0].id).toBe(1)
     expect(releases[0].tag_name).toBeNull() // Draft should have null tag_name
     expect(releases[0].draft).toBe(true)
+    expect(releases[0].publishedAt).toStrictEqual(new Date("2026-01-01T12:13:14.000Z"))
+
+    expect(releases[1].id).toBe(2)
     expect(releases[1].tag_name).toBe("v1.1.0") // Published should have tag_name
     expect(releases[1].draft).toBe(false)
   })
@@ -294,6 +299,7 @@ interface GitHubRelease {
   target_commitish: string
   name: string
   body: string
+  published_at: string
   draft: boolean
   prerelease: boolean
 }
@@ -305,6 +311,7 @@ function createRelease(overrides: Partial<GitHubRelease> = {}): GitHubRelease {
     name: "Release 1.0.0",
     target_commitish: "default",
     body: "Release body",
+    published_at: "2026-01-01T00:00:00Z",
     draft: false,
     prerelease: false,
     ...overrides

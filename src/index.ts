@@ -36,15 +36,15 @@ async function main() {
 
 async function showPullRequests(octokit: Octokit, args: string[]) {
     if (args.length < 4) {
-        console.error("Usage: node dist/index.js pulls <owner> <repo> <branch> <margedAfter>")
+        console.error("Usage: node dist/index.js pulls <owner> <repo> <branch> <mergedSince>")
         process.exit(1)
     }
-    const [owner, repo, branch, mergedAfterString] = args
-    const mergedAfter = new Date(mergedAfterString)
+    const [owner, repo, branch, mergedSinceString] = args
+    const mergedSince = new Date(mergedSinceString)
 
     try {
-        console.log(`Fetching pull requests for ${owner}/${repo}@${branch} after ${mergedAfter.toISOString()}...`)
-        for await (const pr of fetchPullRequests(octokit, owner, repo, branch, mergedAfter)) {
+        console.log(`Fetching pull requests for ${owner}/${repo}@${branch} after ${mergedSince.toISOString()}...`)
+        for await (const pr of fetchPullRequests(octokit, owner, repo, branch, mergedSince)) {
             console.log(pr)
         }
     } catch (error) {

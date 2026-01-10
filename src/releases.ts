@@ -14,7 +14,7 @@ export interface Release {
     target_commitish: string
     name: string | null
     body: string | null | undefined
-    publishedAt: string | null
+    publishedAt: Date | null
     draft: boolean
     prerelease: boolean
 }
@@ -37,6 +37,10 @@ export class Releases implements AsyncIterable<Release> {
         }
     }
 
+    /**
+     * Find the last draft release for the given target commitish.
+     * Note that this doesn't bother checking against `maxReleases` as few draft releases are expected.
+     */
     async findLastDraft(targetCommitish: string): Promise<Release | null> {
         for await (const release of this.source) {
             if (release.draft && !release.prerelease && release.target_commitish === targetCommitish) {
@@ -59,7 +63,8 @@ export class Releases implements AsyncIterable<Release> {
 
     /**
      * Find a specific release using a predicate.
-     * Stops fetching as soon as the release is found.
+     * Stops searching (and therefore paging) as soon as the release is found.
+     * Also stops searching and paging after `maxReleases` has been checked.
      */
     async find(predicate: (release: Release) => boolean): Promise<Release | null> {
         let count = 0
@@ -127,7 +132,7 @@ function mapRelease(releaseData: ReleaseData): Release {
         target_commitish: releaseData.target_commitish,
         name: releaseData.name,
         body: releaseData.body,
-        publishedAt: releaseData.published_at,
+        publishedAt: releaseData.published_at ? new Date(releaseData.published_at) : null,
         draft: releaseData.draft,
         prerelease: releaseData.prerelease
     }
