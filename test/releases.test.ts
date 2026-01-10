@@ -212,6 +212,26 @@ describe("findLast", () => {
     expect(release?.name).toBe("v1.0.2")
     expect(release?.target_commitish).toBe("main")
   })
+
+  it("should not find release beyond MAX_PAGES (5 pages)", async () => {
+    // With perPage=10, maxReleases = 10 * 5 = 50, create 6 pages with 10 releases each
+    const page1 = createReleases(10, 0).map(r => ({ ...r, target_commitish: "other" }))
+    const page2 = createReleases(10, 10).map(r => ({ ...r, target_commitish: "other" }))
+    const page3 = createReleases(10, 20).map(r => ({ ...r, target_commitish: "other" }))
+    const page4 = createReleases(10, 30).map(r => ({ ...r, target_commitish: "other" }))
+    const page5 = createReleases(10, 40).map(r => ({ ...r, target_commitish: "other" }))
+    const page6 = createReleases(10, 50).map(r => ({ ...r, target_commitish: "main" })) // Beyond MAX_PAGES
+
+    mockPaginatedResponse(mockRequest, [page1, page2, page3, page4, page5, page6])
+
+    const releases = fetchReleases(octokit, "test-owner", "test-repo", 10)
+    const release = await releases.findLast("main")
+
+    // Should return null because the matching release is beyond maximum releases
+    expect(release).toBeNull()
+    // Should have stopped after 5 pages
+    expect(mockRequest).toHaveBeenCalledTimes(5)
+  })
 })
 
 describe("findLastDraft", () => {

@@ -2,6 +2,7 @@ import {Octokit} from "octokit"
 import {CachingAsyncIterable} from "./caching-async-iterable";
 
 const DEFAULT_PER_PAGE = 30
+const MAX_PAGES = 5
 
 /**
  * Represents a GitHub Release with the fields needed for the action
@@ -22,9 +23,11 @@ export interface Release {
  */
 export class Releases implements AsyncIterable<Release> {
     private readonly source: CachingAsyncIterable<Release>
+    private readonly maxReleases: number
 
-    constructor(source: CachingAsyncIterable<Release>) {
+    constructor(source: CachingAsyncIterable<Release>, maxReleases: number) {
         this.source = source
+        this.maxReleases = maxReleases
     }
 
     async* [Symbol.asyncIterator](): AsyncIterator<Release> {
@@ -53,15 +56,20 @@ export class Releases implements AsyncIterable<Release> {
         )
     }
 
-    // todo up to a sensible maximum?
     /**
      * Find a specific release using a predicate.
      * Stops fetching as soon as the release is found.
      */
     async find(predicate: (release: Release) => boolean): Promise<Release | null> {
+        let count = 0
         for await (const release of this.source) {
             if (predicate(release)) {
                 return release
+            }
+            count++
+            if (count >= this.maxReleases) {
+                // Give up as it's unlikely to find it beyond this point
+                return null
             }
         }
         return null
@@ -77,9 +85,12 @@ export function fetchReleases(
     repo: string,
     perPage?: number
 ): Releases {
+    const maxReleases = (perPage ?? DEFAULT_PER_PAGE) * MAX_PAGES
+
     return new Releases(
-        new CachingAsyncIterable(
-            createReleasesGenerator(octokit, owner, repo, perPage)))
+        new CachingAsyncIterable(createReleasesGenerator(octokit, owner, repo, perPage)),
+        maxReleases
+    )
 }
 
 async function* createReleasesGenerator(
