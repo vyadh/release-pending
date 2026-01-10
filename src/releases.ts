@@ -1,4 +1,5 @@
 import {Octokit} from "octokit"
+import { RestEndpointMethodTypes } from "@octokit/plugin-rest-endpoint-methods"
 import {CachingAsyncIterable} from "./caching-async-iterable"
 
 const DEFAULT_PER_PAGE = 30
@@ -10,10 +11,9 @@ const MAX_PAGES = 5
 export interface Release {
     id: number
     tag_name: string | null
-    // noinspection SpellCheckingInspection
     target_commitish: string
     name: string | null
-    body: string | null
+    body: string | null | undefined
     draft: boolean
     prerelease: boolean
 }
@@ -100,34 +100,33 @@ async function* createReleasesGenerator(
     perPage?: number
 ): AsyncGenerator<Release> {
 
-    for await (const response of octokit.paginate.iterator(
-        octokit.rest.repos.listReleases,
-        {
-            owner: owner,
-            repo: repo,
-            per_page: perPage ?? DEFAULT_PER_PAGE
-        }
-    )) {
-        for (const release of response.data) {
+    const iterator = octokit.paginate.iterator(octokit.rest.repos.listReleases, {
+        owner: owner,
+        repo: repo,
+        per_page: perPage ?? DEFAULT_PER_PAGE
+    })
+
+    for await (const response of iterator as AsyncIterableIterator<ReleasesResponse>) {
+        for (const release of response.data as ReleaseData[]) {
             yield mapRelease(release)
         }
     }
 }
 
+type ReleasesResponse = RestEndpointMethodTypes["repos"]["listReleases"]["response"];
+type ReleaseData = ReleasesResponse["data"][number];
+
 /**
  * Maps a GitHub API release response to our Release interface
- *
- * Using the `any` type here to avoid a full Octokit REST dependency.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapRelease(apiRelease: any): Release {
+function mapRelease(releaseData: ReleaseData): Release {
     return {
-        id: apiRelease.id,
-        tag_name: apiRelease.draft ? null : apiRelease.tag_name,
-        target_commitish: apiRelease.target_commitish,
-        name: apiRelease.name,
-        body: apiRelease.body,
-        draft: apiRelease.draft,
-        prerelease: apiRelease.prerelease
+        id: releaseData.id,
+        tag_name: releaseData.draft ? null : releaseData.tag_name,
+        target_commitish: releaseData.target_commitish,
+        name: releaseData.name,
+        body: releaseData.body,
+        draft: releaseData.draft,
+        prerelease: releaseData.prerelease
     }
 }

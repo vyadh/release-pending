@@ -93,14 +93,16 @@ async function* createPullRequestsGenerator(
     let hasNextPage = true
 
     while (hasNextPage) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const response: any = await octokit.graphql(pullRequestQuery, {
-            owner: owner,
-            repo: repo,
-            baseRefName: baseRefName,
-            perPage: perPage ?? DEFAULT_PER_PAGE,
-            cursor
-        })
+        const response: PullRequestQueryResponse = await octokit.graphql<PullRequestQueryResponse>(
+            pullRequestQuery,
+            {
+                owner: owner,
+                repo: repo,
+                baseRefName: baseRefName,
+                perPage: perPage ?? DEFAULT_PER_PAGE,
+                cursor
+            }
+        )
 
         const pulls = response.repository.pullRequests.nodes
         const pageInfo = response.repository.pullRequests.pageInfo
@@ -119,11 +121,30 @@ async function* createPullRequestsGenerator(
     }
 }
 
+interface PullRequestQueryResponse {
+    repository: {
+        pullRequests: {
+            pageInfo: {
+                hasNextPage: boolean
+                endCursor: string | null
+            }
+            nodes: PullRequestNode[]
+        }
+    }
+}
+
+interface PullRequestNode {
+    title: string
+    number: number
+    baseRefName: string
+    mergedAt: string
+    mergeCommit: { oid: string }
+}
+
 /**
  * Maps a GitHub GraphQL API pull request response to our PullRequest interface
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapPullRequest(apiPR: any): PullRequest {
+function mapPullRequest(apiPR: PullRequestNode): PullRequest {
     return {
         title: apiPR.title,
         number: apiPR.number,
