@@ -1,4 +1,5 @@
 import { Octokit } from "octokit"
+import {CachingAsyncGenerator} from "./caching-async-generator";
 
 const DEFAULT_PER_PAGE = 30
 
@@ -19,12 +20,21 @@ export interface Release {
 /**
  * Fetch GitHub releases lazily with pagination, only fetching more pages when needed.
  */
-export async function* fetchReleases(
+export function fetchReleases(
+    octokit: Octokit,
+    owner: string,
+    repo: string,
+    perPage?: number
+): CachingAsyncGenerator<Release> {
+  return new CachingAsyncGenerator(createReleasesGenerator(octokit, owner, repo, perPage))
+}
+
+async function* createReleasesGenerator(
   octokit: Octokit,
   owner: string,
   repo: string,
   perPage?: number
-): AsyncGenerator<Release, void, undefined> {
+): AsyncGenerator<Release> {
 
   for await (const response of octokit.paginate.iterator(
     octokit.rest.repos.listReleases,
@@ -34,7 +44,6 @@ export async function* fetchReleases(
       per_page: perPage ?? DEFAULT_PER_PAGE
     }
   )) {
-    // Yield each release one at a time
     for (const release of response.data) {
       yield mapRelease(release)
     }

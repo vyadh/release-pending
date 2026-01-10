@@ -1,7 +1,8 @@
-import { createOctokit } from "./octokit-factory.js"
-import { fetchPullRequests } from "./pull-requests"
+import {createOctokit} from "./octokit-factory.js"
+import {fetchPullRequests} from "./pull-requests"
 import {Octokit} from "octokit"
-import {fetchReleases} from "./releases"
+import {fetchReleases, Release} from "./releases"
+import {CachingAsyncGenerator} from "./caching-async-generator";
 
 await main()
 
@@ -47,7 +48,7 @@ async function showPullRequests(octokit: Octokit, args: string[]) {
             console.log(pr)
         }
     } catch (error) {
-        console.error("Error fetching releases:", error)
+        console.error("Error fetching pull requests:", error)
         process.exit(1)
     }
 }
@@ -60,12 +61,39 @@ async function showReleases(octokit: Octokit, args: string[]) {
     const [owner, repo] = args
 
     try {
-        console.log(`Fetching releases for ${owner}/${repo}...`)
-        for await (const release of fetchReleases(octokit, owner, repo)) {
-            console.log(release)
+        const releases = fetchReleases(octokit, owner, repo);
+
+        console.log(`Fetching draft releases for ${owner}/${repo}...`)
+        for await (const release of releases) {
+            if (release.draft) {
+                console.log(release)
+            }
+        }
+
+        console.log(`Finding latest draft release...`)
+        const draftRelease = await findDraftRelease(releases)
+        console.log(draftRelease)
+
+        console.log(`Fetching final releases for ${owner}/${repo}...`)
+        for await (const release of releases) {
+             if (!release.draft) {
+                console.log(release)
+            }
         }
     } catch (error) {
         console.error("Error fetching releases:", error)
         process.exit(1)
     }
+}
+
+async function findDraftRelease(releases: CachingAsyncGenerator<Release>): Promise<Release | undefined>  {
+    for await (const release of releases) {
+        if (release.draft && !release.prerelease) {
+            return release
+        } else if (!release.prerelease) {
+            // Draft releases are expected to first so we can stop searching
+            return undefined
+        }
+    }
+    return undefined
 }

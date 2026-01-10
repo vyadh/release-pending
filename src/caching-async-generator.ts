@@ -35,13 +35,13 @@
  * }
  * ```
  */
-export class CachingAsyncGenerator<T, TReturn = void, TNext = undefined> {
+export class CachingAsyncGenerator<T> {
     private readonly cache: T[] = []
-    private readonly source: AsyncGenerator<T, TReturn, TNext>
+    private readonly source: AsyncGenerator<T, void, undefined>
     private sourceExhausted = false
-    private readonly sourceIterator: AsyncIterator<T, TReturn, TNext> | null = null
+    private readonly sourceIterator: AsyncIterator<T, void, undefined> | null = null
 
-    constructor(source: AsyncGenerator<T, TReturn, TNext>) {
+    constructor(source: AsyncGenerator<T, void, undefined>) {
         this.source = source
         this.sourceIterator = this.source[Symbol.asyncIterator]()
     }
