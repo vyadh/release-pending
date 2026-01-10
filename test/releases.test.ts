@@ -154,32 +154,63 @@ describe("findLast", () => {
     mockRequest = mock.mockRequest
   })
 
-  it("should find first non-draft non-prerelease", async () => {
-    mockSinglePageResponse(mockRequest, Array.of(
-        createRelease({ id: 4, name: "v1.0.3", draft: true,  }),
-        createRelease({ id: 3, name: "v1.0.2", prerelease: true }),
-        createRelease({ id: 2, name: "v1.0.1", draft: false, prerelease: false }),
-        createRelease({ id: 1, name: "v1.0.0", draft: false, prerelease: false })
-    ))
-
-    const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
-    const release = await releases.findLast()
-
-    expect(release).not.toBeNull()
-    expect(release?.name).toBe("v1.0.1")
-  })
-
   it("should return null if no final release found", async () => {
     mockSinglePageResponse(mockRequest, Array.of(
-        createRelease({ id: 4, name: "v1.0.3", draft: true,  }),
-        createRelease({ id: 3, name: "v1.0.2", prerelease: true })
+        createRelease({ id: 4, name: "v1.0.3", target_commitish: "main", draft: true }),
+        createRelease({ id: 3, name: "v1.0.2", target_commitish: "main", prerelease: true })
     ))
 
     const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
-    const release = await releases.findLast()
+    const release = await releases.findLast("main")
 
     expect(release).toBeNull()
     expect(mockRequest).toHaveBeenCalledTimes(1)
+  })
+
+  it("should find first non-draft non-prerelease with matching commitish", async () => {
+    mockSinglePageResponse(mockRequest, Array.of(
+        createRelease({ id: 4, name: "v1.0.4", target_commitish: "main", draft: true }),
+        createRelease({ id: 3, name: "v1.0.3", target_commitish: "main", prerelease: true }),
+        createRelease({ id: 2, name: "v1.0.2", target_commitish: "develop", draft: false, prerelease: false }),
+        createRelease({ id: 1, name: "v1.0.1", target_commitish: "main", draft: false, prerelease: false }),
+        createRelease({ id: 0, name: "v1.0.0", target_commitish: "main", draft: false, prerelease: false })
+    ))
+
+    const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
+    const release = await releases.findLast("main")
+
+    expect(release).not.toBeNull()
+    expect(release?.name).toBe("v1.0.1")
+    expect(release?.target_commitish).toBe("main")
+  })
+
+  it("should return null if no release matches commitish", async () => {
+    mockSinglePageResponse(mockRequest, Array.of(
+        createRelease({ id: 2, name: "v1.0.1", target_commitish: "main", draft: false, prerelease: false }),
+        createRelease({ id: 1, name: "v1.0.0", target_commitish: "main", draft: false, prerelease: false })
+    ))
+
+    const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
+    const release = await releases.findLast("develop")
+
+    expect(release).toBeNull()
+    expect(mockRequest).toHaveBeenCalledTimes(1)
+  })
+
+  it("should skip drafts and prereleases when filtering by commitish", async () => {
+    mockSinglePageResponse(mockRequest, Array.of(
+        createRelease({ id: 4, name: "v1.0.4", target_commitish: "main", draft: true }),
+        createRelease({ id: 3, name: "v1.0.3", target_commitish: "main", prerelease: true }),
+        createRelease({ id: 2, name: "v1.0.2", target_commitish: "main", draft: false, prerelease: false }),
+        createRelease({ id: 1, name: "v1.0.1", target_commitish: "other", draft: false, prerelease: false })
+    ))
+
+    const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
+    const release = await releases.findLast("main")
+
+    expect(release).not.toBeNull()
+    expect(release?.name).toBe("v1.0.2")
+    expect(release?.target_commitish).toBe("main")
   })
 })
 
@@ -193,15 +224,16 @@ describe("findLastDraft", () => {
     mockRequest = mock.mockRequest
   })
 
-  it("should find first draft non-prerelease", async () => {
+  it("should find first draft non-prerelease for the same commitish", async () => {
     mockSinglePageResponse(mockRequest, Array.of(
-        createRelease({ id: 4, name: "v1.0.3", draft: true, prerelease: true }),
-        createRelease({ id: 3, name: "v1.0.2", draft: true, prerelease: false }),
-        createRelease({ id: 2, name: "v1.0.1", draft: true })
+        createRelease({ id: 4, name: "v1.0.4", target_commitish: "main", draft: true, prerelease: true }),
+        createRelease({ id: 3, name: "v1.0.3", target_commitish: "other", draft: true, prerelease: false }),
+        createRelease({ id: 2, name: "v1.0.2", target_commitish: "main", draft: true, prerelease: false }),
+        createRelease({ id: 1, name: "v1.0.1", target_commitish: "main", draft: true, prerelease: false })
     ))
 
     const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
-    const release = await releases.findLastDraft()
+    const release = await releases.findLastDraft("main")
 
     expect(release).not.toBeNull()
     expect(release?.name).toBe("v1.0.2")
@@ -209,24 +241,25 @@ describe("findLastDraft", () => {
 
   it("should return null and return early on non-draft as draft always first", async () => {
     mockSinglePageResponse(mockRequest, Array.of(
-        createRelease({ id: 4, name: "v1.0.3", draft: false }),
-        createRelease({ id: 3, name: "v1.0.2", draft: true }) // Should not be reached
+        createRelease({ id: 4, name: "v1.0.3", target_commitish: "main", draft: false }),
+        createRelease({ id: 3, name: "v1.0.2", target_commitish: "main", draft: true }) // Should not be reached
     ))
 
     const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
-    const release = await releases.findLastDraft()
+    const release = await releases.findLastDraft("main")
 
     expect(release).toBeNull()
     expect(mockRequest).toHaveBeenCalledTimes(1)
   })
 
-  it("should return null if no draft release found", async () => {
+  it("should return null if no draft release found for the commitish", async () => {
     mockSinglePageResponse(mockRequest, Array.of(
-        createRelease({ id: 4, name: "v1.0.3", draft: false,  }),
+        createRelease({ id: 3, name: "v1.0.3", target_commitish: "main", draft: false }),
+        createRelease({ id: 2, name: "v1.0.2", target_commitish: "other", draft: true }),
     ))
 
     const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
-    const release = await releases.findLastDraft()
+    const release = await releases.findLastDraft("main")
 
     expect(release).toBeNull()
     expect(mockRequest).toHaveBeenCalledTimes(1)
@@ -249,8 +282,8 @@ function createRelease(overrides: Partial<GitHubRelease> = {}): GitHubRelease {
   return {
     id: 1,
     tag_name: "v1.0.0",
-    target_commitish: "main",
     name: "Release 1.0.0",
+    target_commitish: "default",
     body: "Release body",
     draft: false,
     prerelease: false,

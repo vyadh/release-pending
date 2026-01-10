@@ -33,11 +33,11 @@ export class Releases implements AsyncIterable<Release> {
         }
     }
 
-    async findLastDraft(): Promise<Release | null> {
+    async findLastDraft(targetCommitish: string): Promise<Release | null> {
         for await (const release of this.source) {
-            if (release.draft && !release.prerelease) {
+            if (release.draft && !release.prerelease && release.target_commitish === targetCommitish) {
                 return release
-            } else if (!release.prerelease) {
+            } else if (!release.draft) {
                 // Draft releases are expected first so we can stop searching
                 return null
             }
@@ -45,8 +45,12 @@ export class Releases implements AsyncIterable<Release> {
         return null
     }
 
-    async findLast(): Promise<Release | null> {
-        return this.find((release) => !release.draft && !release.prerelease)
+    async findLast(targetCommitish: string): Promise<Release | null> {
+        return this.find((release) =>
+            !release.draft &&
+            !release.prerelease &&
+            release.target_commitish === targetCommitish
+        )
     }
 
     // todo up to a sensible maximum?

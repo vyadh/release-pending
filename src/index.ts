@@ -70,7 +70,7 @@ async function showReleases(octokit: Octokit, args: string[]) {
         }
 
         console.log(`Finding latest draft release...`)
-        const draftRelease = await releases.findLastDraft()
+        const draftRelease = await releases.findLastDraft("main")
         console.log(draftRelease)
 
         console.log(`Fetching releases for ${owner}/${repo}...`)
@@ -81,7 +81,7 @@ async function showReleases(octokit: Octokit, args: string[]) {
         }
 
         console.log(`Fetching latest final releases...`)
-        const lastRelease = await releases.findLast()
+        const lastRelease = await releases.findLast("main")
         console.log(lastRelease)
     } catch (error) {
         console.error("Error fetching releases:", error)
