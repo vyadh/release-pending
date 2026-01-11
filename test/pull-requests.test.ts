@@ -6,7 +6,7 @@ import type { PullRequest } from "../src/pull-requests"
 describe("fetchPullRequests", () => {
   let octokit: Octokit
   let mockGraphQL: ReturnType<typeof vi.fn>
-  const inclusiveMergedSince = null
+  const inclusiveMergedSince = null // No cutoff date
 
   beforeEach(() => {
     const mock = createOctokit()

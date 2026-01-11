@@ -76,7 +76,7 @@ async function simulate(octokit: Octokit, args: string[]) {
             }
         }
     } else {
-        console.log("Since there are no outstanding PRs, a draft release will neither be created or updated")
+        console.log("Since there are no outstanding PRs, a draft release will neither be created nor updated")
     }
 }
 
