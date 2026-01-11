@@ -1,6 +1,7 @@
 import {beforeEach, describe, expect, it, vi} from "vitest"
 import {Octokit} from "octokit"
 import {createDraftRelease, type Release, updateRelease} from "../src/release"
+import {RestEndpointMethodTypes} from "@octokit/plugin-rest-endpoint-methods"
 
 describe("createDraftRelease", () => {
     let octokit: Octokit
@@ -338,11 +339,14 @@ function createOctokit(): {
     const mockCreateRelease = vi.fn()
     const mockUpdateRelease = vi.fn()
 
-    const mockCreateReleaseFunction: any = vi.fn().mockImplementation((params: any) => {
-        return mockCreateRelease(params)
-    })
+    type CreateReleaseParams = RestEndpointMethodTypes["repos"]["createRelease"]["parameters"]
+    type UpdateReleaseParams = RestEndpointMethodTypes["repos"]["updateRelease"]["parameters"]
 
-    mockCreateReleaseFunction.endpoint = vi.fn().mockImplementation((params: any) => {
+    const mockCreateReleaseFunction = vi.fn().mockImplementation((params: CreateReleaseParams) => {
+        return mockCreateRelease(params)
+    }) as typeof octokit.rest.repos.createRelease
+
+    mockCreateReleaseFunction.endpoint = vi.fn().mockImplementation((params: CreateReleaseParams) => {
         return {
             method: "POST",
             url: `https://api.github.com/repos/${params.owner}/${params.repo}/releases`,
@@ -352,11 +356,11 @@ function createOctokit(): {
         }
     })
 
-    const mockUpdateReleaseFunction: any = vi.fn().mockImplementation((params: any) => {
+    const mockUpdateReleaseFunction = vi.fn().mockImplementation((params: UpdateReleaseParams) => {
         return mockUpdateRelease(params)
-    })
+    }) as typeof octokit.rest.repos.updateRelease
 
-    mockUpdateReleaseFunction.endpoint = vi.fn().mockImplementation((params: any) => {
+    mockUpdateReleaseFunction.endpoint = vi.fn().mockImplementation((params: UpdateReleaseParams) => {
         return {
             method: "PATCH",
             url: `https://api.github.com/repos/${params.owner}/${params.repo}/releases/${params.release_id}`,
