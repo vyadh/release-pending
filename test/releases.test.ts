@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { Octokit } from "octokit"
 import {fetchReleases} from "../src/releases"
-import type { Release } from "../src/releases"
+import type { Release } from "../src/release"
 
 describe("fetchReleases", () => {
   let octokit: Octokit
@@ -105,12 +105,12 @@ describe("fetchReleases", () => {
 
     expect(releases).toHaveLength(2)
     expect(releases[0].id).toBe(1)
-    expect(releases[0].tag_name).toBeNull() // Draft should have null tag_name
+    expect(releases[0].tagName).toBeNull() // Draft should have null tag_name
     expect(releases[0].draft).toBe(true)
     expect(releases[0].publishedAt).toStrictEqual(new Date("2026-01-01T12:13:14.000Z"))
 
     expect(releases[1].id).toBe(2)
-    expect(releases[1].tag_name).toBe("v1.1.0") // Published should have tag_name
+    expect(releases[1].tagName).toBe("v1.1.0") // Published should have tag_name
     expect(releases[1].draft).toBe(false)
   })
 })
@@ -130,10 +130,10 @@ describe("find", () => {
     mockSinglePageResponse(mockRequest, mockReleases)
 
     const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
-    const release = await releases.find((r) => r.tag_name === "v1.5.0")
+    const release = await releases.find((r) => r.tagName === "v1.5.0")
 
     expect(release).not.toBeNull()
-    expect(release?.tag_name).toBe("v1.5.0")
+    expect(release?.tagName).toBe("v1.5.0")
     expect(mockRequest).toHaveBeenCalledTimes(1)
   })
 
@@ -142,7 +142,7 @@ describe("find", () => {
     mockSinglePageResponse(mockRequest, mockReleases)
 
     const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
-    const release = await releases.find((r) => r.tag_name === "v2.0.0")
+    const release = await releases.find((r) => r.tagName === "v2.0.0")
 
     expect(release).toBeNull()
     expect(mockRequest).toHaveBeenCalledTimes(1)
@@ -186,7 +186,7 @@ describe("findLast", () => {
 
     expect(release).not.toBeNull()
     expect(release?.name).toBe("v1.0.1")
-    expect(release?.target_commitish).toBe("main")
+    expect(release?.targetCommitish).toBe("main")
   })
 
   it("should return null if no release matches commitish", async () => {
@@ -215,7 +215,7 @@ describe("findLast", () => {
 
     expect(release).not.toBeNull()
     expect(release?.name).toBe("v1.0.2")
-    expect(release?.target_commitish).toBe("main")
+    expect(release?.targetCommitish).toBe("main")
   })
 
   it("should not find release beyond MAX_PAGES (5 pages)", async () => {

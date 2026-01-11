@@ -1,23 +1,10 @@
 import {Octokit} from "octokit"
 import { RestEndpointMethodTypes } from "@octokit/plugin-rest-endpoint-methods"
 import {CachingAsyncIterable} from "./caching-async-iterable"
+import {Release} from "./release"
 
 const DEFAULT_PER_PAGE = 30
 const MAX_PAGES = 5
-
-/**
- * Represents a GitHub Release with the fields needed for the action
- */
-export interface Release {
-    id: number
-    tag_name: string | null
-    target_commitish: string
-    name: string | null
-    body: string | null | undefined
-    publishedAt: Date | null
-    draft: boolean
-    prerelease: boolean
-}
 
 /**
  * Represents a collection of GitHub Releases with methods to find specific releases.
@@ -43,7 +30,7 @@ export class Releases implements AsyncIterable<Release> {
      */
     async findLastDraft(targetCommitish: string): Promise<Release | null> {
         for await (const release of this.source) {
-            if (release.draft && !release.prerelease && release.target_commitish === targetCommitish) {
+            if (release.draft && !release.prerelease && release.targetCommitish === targetCommitish) {
                 return release
             } else if (!release.draft) {
                 // Draft releases are expected first so we can stop searching
@@ -57,7 +44,7 @@ export class Releases implements AsyncIterable<Release> {
         return this.find((release) =>
             !release.draft &&
             !release.prerelease &&
-            release.target_commitish === targetCommitish
+            release.targetCommitish === targetCommitish
         )
     }
 
@@ -128,8 +115,8 @@ type ReleaseData = ReleasesResponse["data"][number];
 function mapRelease(releaseData: ReleaseData): Release {
     return {
         id: releaseData.id,
-        tag_name: releaseData.draft ? null : releaseData.tag_name,
-        target_commitish: releaseData.target_commitish,
+        tagName: releaseData.draft ? null : releaseData.tag_name,
+        targetCommitish: releaseData.target_commitish,
         name: releaseData.name,
         body: releaseData.body,
         publishedAt: releaseData.published_at ? new Date(releaseData.published_at) : null,
