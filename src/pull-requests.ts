@@ -1,4 +1,4 @@
-import { Octokit } from "octokit"
+import { Context } from "./context.js"
 
 const DEFAULT_PER_PAGE = 30
 
@@ -75,23 +75,15 @@ query(
  * Only fetches more pages when needed.
  */
 export function fetchPullRequests(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  baseRefName: string,
+  context: Context,
   mergedSince: Date | null,
   perPage?: number
 ): PullRequests {
-  return new PullRequests(
-    createPullRequestsGenerator(octokit, owner, repo, baseRefName, mergedSince, perPage)
-  )
+  return new PullRequests(createPullRequestsGenerator(context, mergedSince, perPage))
 }
 
 async function* createPullRequestsGenerator(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  baseRefName: string,
+  context: Context,
   mergedSince: Date | null,
   perPage?: number
 ): AsyncGenerator<PullRequest, void, undefined> {
@@ -99,16 +91,14 @@ async function* createPullRequestsGenerator(
   let hasNextPage = true
 
   while (hasNextPage) {
-    const response: PullRequestQueryResponse = await octokit.graphql<PullRequestQueryResponse>(
-      pullRequestQuery,
-      {
-        owner: owner,
-        repo: repo,
-        baseRefName: baseRefName,
+    const response: PullRequestQueryResponse =
+      await context.octokit.graphql<PullRequestQueryResponse>(pullRequestQuery, {
+        owner: context.owner,
+        repo: context.repo,
+        baseRefName: context.branch,
         perPage: perPage ?? DEFAULT_PER_PAGE,
         cursor
-      }
-    )
+      })
 
     const pulls = response.repository.pullRequests.nodes
     const pageInfo = response.repository.pullRequests.pageInfo

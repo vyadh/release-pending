@@ -1,6 +1,7 @@
 import { createOctokit } from "./octokit-factory.js"
 import { fetchPullRequests } from "./pull-requests"
 import { Octokit } from "octokit"
+import { Context } from "./context.js"
 import { fetchReleases } from "./releases"
 import { upsertDraftRelease } from "./core.js"
 
@@ -47,7 +48,8 @@ async function simulate(octokit: Octokit, args: string[]) {
 
   console.log(`Simulating draft release for ${owner}/${repo}@${branch}...`)
 
-  const result = await upsertDraftRelease(octokit, owner, repo, branch, defaultTag)
+  const context: Context = { octokit, owner, repo, branch }
+  const result = await upsertDraftRelease(context, defaultTag)
 
   console.log(`\nResult:`)
   console.log(`  Action: ${result.action}`)
@@ -73,7 +75,8 @@ async function showReleases(octokit: Octokit, args: string[]) {
   const [owner, repo] = args
 
   try {
-    const releases = fetchReleases(octokit, owner, repo)
+    const context: Context = { octokit, owner, repo, branch: "placeholder" }
+    const releases = fetchReleases(context)
 
     console.log(`Finding latest draft release...`)
     console.log(await releases.findLastDraft("main"))
@@ -98,7 +101,8 @@ async function showPullRequests(octokit: Octokit, args: string[]) {
     console.log(
       `Fetching pull requests for ${owner}/${repo}@${branch} after ${mergedSince.toISOString()}...`
     )
-    for await (const pr of fetchPullRequests(octokit, owner, repo, branch, mergedSince)) {
+    const context: Context = { octokit, owner, repo, branch }
+    for await (const pr of fetchPullRequests(context, mergedSince)) {
       console.log(pr)
     }
   } catch (error) {

@@ -1,22 +1,29 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { Octokit } from "octokit"
-import {fetchReleases} from "../src/releases"
+import { fetchReleases } from "../src/releases"
 import type { Release } from "../src/release"
+import { Context } from "../src/context"
 
 describe("fetchReleases", () => {
-  let octokit: Octokit
   let mockRequest: ReturnType<typeof vi.fn>
+  let context: Context
 
   beforeEach(() => {
     const mock = createOctokit()
-    octokit = mock.octokit
     mockRequest = mock.mockRequest
+
+    context = {
+      octokit: mock.octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main"
+    }
   })
 
   it("should handle no releases", async () => {
     mockSinglePageResponse(mockRequest, [])
 
-    const releases = await collectReleases(octokit, "test-owner", "test-repo")
+    const releases = await collectReleases(context)
 
     expect(releases).toHaveLength(0)
     expect(mockRequest).toHaveBeenCalledTimes(1)
@@ -26,7 +33,7 @@ describe("fetchReleases", () => {
     const mockReleases = createReleases(10)
     mockSinglePageResponse(mockRequest, mockReleases)
 
-    const releases = await collectReleases(octokit, "test-owner", "test-repo", 30)
+    const releases = await collectReleases(context, 30)
 
     expect(releases).toHaveLength(10)
     expect(mockRequest).toHaveBeenCalledTimes(1)
@@ -37,7 +44,7 @@ describe("fetchReleases", () => {
     mockSinglePageResponse(mockRequest, mockReleasesPage1)
 
     let count = 0
-    for await (const _ of fetchReleases(octokit, "test-owner", "test-repo", 30)) {
+    for await (const _ of fetchReleases(context, 30)) {
       count++
       if (count === 10) {
         break // Stop early
@@ -53,7 +60,7 @@ describe("fetchReleases", () => {
     const mockReleasesPage2 = createReleases(20, 30)
     mockPaginatedResponse(mockRequest, [mockReleasesPage1, mockReleasesPage2])
 
-    const releases = await collectReleases(octokit, "test-owner", "test-repo", 30)
+    const releases = await collectReleases(context, 30)
 
     expect(releases).toHaveLength(50)
     expect(mockRequest).toHaveBeenCalledTimes(2)
@@ -64,8 +71,7 @@ describe("fetchReleases", () => {
 
     // Should throw before yielding any releases
     // noinspection ES6RedundantAwait
-    await expect(collectReleases(octokit, "test-owner", "test-repo"))
-        .rejects.toThrow("API rate limit exceeded")
+    await expect(collectReleases(context)).rejects.toThrow("API rate limit exceeded")
 
     expect(mockRequest).toHaveBeenCalledTimes(1)
   })
@@ -75,8 +81,7 @@ describe("fetchReleases", () => {
 
     // Should throw before yielding any releases
     // noinspection ES6RedundantAwait
-    await expect(collectReleases(octokit, "test-owner", "test-repo"))
-        .rejects.toThrow("Bad credentials")
+    await expect(collectReleases(context)).rejects.toThrow("Bad credentials")
 
     expect(mockRequest).toHaveBeenCalledTimes(1)
   })
@@ -101,7 +106,7 @@ describe("fetchReleases", () => {
     ]
     mockSinglePageResponse(mockRequest, mockReleases)
 
-    const releases = await collectReleases(octokit, "test-owner", "test-repo")
+    const releases = await collectReleases(context)
 
     expect(releases).toHaveLength(2)
     expect(releases[0].id).toBe(1)
@@ -116,20 +121,26 @@ describe("fetchReleases", () => {
 })
 
 describe("find", () => {
-  let octokit: Octokit
   let mockRequest: ReturnType<typeof vi.fn>
+  let context: Context
 
   beforeEach(() => {
     const mock = createOctokit()
-    octokit = mock.octokit
     mockRequest = mock.mockRequest
+
+    context = {
+      octokit: mock.octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main"
+    }
   })
 
   it("should find release on first page", async () => {
     const mockReleases = createReleases(10)
     mockSinglePageResponse(mockRequest, mockReleases)
 
-    const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
+    const releases = fetchReleases(context, 30)
     const release = await releases.find((r) => r.tagName === "v1.5.0")
 
     expect(release).not.toBeNull()
@@ -141,7 +152,7 @@ describe("find", () => {
     const mockReleases = createReleases(10)
     mockSinglePageResponse(mockRequest, mockReleases)
 
-    const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
+    const releases = fetchReleases(context, 30)
     const release = await releases.find((r) => r.tagName === "v2.0.0")
 
     expect(release).toBeNull()
@@ -150,22 +161,31 @@ describe("find", () => {
 })
 
 describe("findLast", () => {
-  let octokit: Octokit
   let mockRequest: ReturnType<typeof vi.fn>
+  let context: Context
 
   beforeEach(() => {
     const mock = createOctokit()
-    octokit = mock.octokit
     mockRequest = mock.mockRequest
+
+    context = {
+      octokit: mock.octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main"
+    }
   })
 
   it("should return null if no final release found", async () => {
-    mockSinglePageResponse(mockRequest, Array.of(
+    mockSinglePageResponse(
+      mockRequest,
+      Array.of(
         createRelease({ id: 4, name: "v1.0.3", target_commitish: "main", draft: true }),
         createRelease({ id: 3, name: "v1.0.2", target_commitish: "main", prerelease: true })
-    ))
+      )
+    )
 
-    const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
+    const releases = fetchReleases(context, 30)
     const release = await releases.findLast("main")
 
     expect(release).toBeNull()
@@ -173,15 +193,36 @@ describe("findLast", () => {
   })
 
   it("should find first non-draft non-prerelease with matching commitish", async () => {
-    mockSinglePageResponse(mockRequest, Array.of(
+    mockSinglePageResponse(
+      mockRequest,
+      Array.of(
         createRelease({ id: 4, name: "v1.0.4", target_commitish: "main", draft: true }),
         createRelease({ id: 3, name: "v1.0.3", target_commitish: "main", prerelease: true }),
-        createRelease({ id: 2, name: "v1.0.2", target_commitish: "develop", draft: false, prerelease: false }),
-        createRelease({ id: 1, name: "v1.0.1", target_commitish: "main", draft: false, prerelease: false }),
-        createRelease({ id: 0, name: "v1.0.0", target_commitish: "main", draft: false, prerelease: false })
-    ))
+        createRelease({
+          id: 2,
+          name: "v1.0.2",
+          target_commitish: "develop",
+          draft: false,
+          prerelease: false
+        }),
+        createRelease({
+          id: 1,
+          name: "v1.0.1",
+          target_commitish: "main",
+          draft: false,
+          prerelease: false
+        }),
+        createRelease({
+          id: 0,
+          name: "v1.0.0",
+          target_commitish: "main",
+          draft: false,
+          prerelease: false
+        })
+      )
+    )
 
-    const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
+    const releases = fetchReleases(context, 30)
     const release = await releases.findLast("main")
 
     expect(release).not.toBeNull()
@@ -190,12 +231,27 @@ describe("findLast", () => {
   })
 
   it("should return null if no release matches commitish", async () => {
-    mockSinglePageResponse(mockRequest, Array.of(
-        createRelease({ id: 2, name: "v1.0.1", target_commitish: "main", draft: false, prerelease: false }),
-        createRelease({ id: 1, name: "v1.0.0", target_commitish: "main", draft: false, prerelease: false })
-    ))
+    mockSinglePageResponse(
+      mockRequest,
+      Array.of(
+        createRelease({
+          id: 2,
+          name: "v1.0.1",
+          target_commitish: "main",
+          draft: false,
+          prerelease: false
+        }),
+        createRelease({
+          id: 1,
+          name: "v1.0.0",
+          target_commitish: "main",
+          draft: false,
+          prerelease: false
+        })
+      )
+    )
 
-    const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
+    const releases = fetchReleases(context, 30)
     const release = await releases.findLast("develop")
 
     expect(release).toBeNull()
@@ -203,14 +259,29 @@ describe("findLast", () => {
   })
 
   it("should skip drafts and prereleases when filtering by commitish", async () => {
-    mockSinglePageResponse(mockRequest, Array.of(
+    mockSinglePageResponse(
+      mockRequest,
+      Array.of(
         createRelease({ id: 4, name: "v1.0.4", target_commitish: "main", draft: true }),
         createRelease({ id: 3, name: "v1.0.3", target_commitish: "main", prerelease: true }),
-        createRelease({ id: 2, name: "v1.0.2", target_commitish: "main", draft: false, prerelease: false }),
-        createRelease({ id: 1, name: "v1.0.1", target_commitish: "other", draft: false, prerelease: false })
-    ))
+        createRelease({
+          id: 2,
+          name: "v1.0.2",
+          target_commitish: "main",
+          draft: false,
+          prerelease: false
+        }),
+        createRelease({
+          id: 1,
+          name: "v1.0.1",
+          target_commitish: "other",
+          draft: false,
+          prerelease: false
+        })
+      )
+    )
 
-    const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
+    const releases = fetchReleases(context, 30)
     const release = await releases.findLast("main")
 
     expect(release).not.toBeNull()
@@ -220,16 +291,16 @@ describe("findLast", () => {
 
   it("should not find release beyond MAX_PAGES (5 pages)", async () => {
     // With perPage=10, maxReleases = 10 * 5 = 50, create 6 pages with 10 releases each
-    const page1 = createReleases(10, 0).map(r => ({ ...r, target_commitish: "other" }))
-    const page2 = createReleases(10, 10).map(r => ({ ...r, target_commitish: "other" }))
-    const page3 = createReleases(10, 20).map(r => ({ ...r, target_commitish: "other" }))
-    const page4 = createReleases(10, 30).map(r => ({ ...r, target_commitish: "other" }))
-    const page5 = createReleases(10, 40).map(r => ({ ...r, target_commitish: "other" }))
-    const page6 = createReleases(10, 50).map(r => ({ ...r, target_commitish: "main" })) // Beyond MAX_PAGES
+    const page1 = createReleases(10, 0).map((r) => ({ ...r, target_commitish: "other" }))
+    const page2 = createReleases(10, 10).map((r) => ({ ...r, target_commitish: "other" }))
+    const page3 = createReleases(10, 20).map((r) => ({ ...r, target_commitish: "other" }))
+    const page4 = createReleases(10, 30).map((r) => ({ ...r, target_commitish: "other" }))
+    const page5 = createReleases(10, 40).map((r) => ({ ...r, target_commitish: "other" }))
+    const page6 = createReleases(10, 50).map((r) => ({ ...r, target_commitish: "main" })) // Beyond MAX_PAGES
 
     mockPaginatedResponse(mockRequest, [page1, page2, page3, page4, page5, page6])
 
-    const releases = fetchReleases(octokit, "test-owner", "test-repo", 10)
+    const releases = fetchReleases(context, 10)
     const release = await releases.findLast("main")
 
     // Should return null because the matching release is beyond maximum releases
@@ -240,24 +311,57 @@ describe("findLast", () => {
 })
 
 describe("findLastDraft", () => {
-  let octokit: Octokit
   let mockRequest: ReturnType<typeof vi.fn>
+  let context: Context
 
   beforeEach(() => {
     const mock = createOctokit()
-    octokit = mock.octokit
     mockRequest = mock.mockRequest
+
+    context = {
+      octokit: mock.octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main"
+    }
   })
 
   it("should find first draft non-prerelease for the same commitish", async () => {
-    mockSinglePageResponse(mockRequest, Array.of(
-        createRelease({ id: 4, name: "v1.0.4", target_commitish: "main", draft: true, prerelease: true }),
-        createRelease({ id: 3, name: "v1.0.3", target_commitish: "other", draft: true, prerelease: false }),
-        createRelease({ id: 2, name: "v1.0.2", target_commitish: "main", draft: true, prerelease: false }),
-        createRelease({ id: 1, name: "v1.0.1", target_commitish: "main", draft: true, prerelease: false })
-    ))
+    mockSinglePageResponse(
+      mockRequest,
+      Array.of(
+        createRelease({
+          id: 4,
+          name: "v1.0.4",
+          target_commitish: "main",
+          draft: true,
+          prerelease: true
+        }),
+        createRelease({
+          id: 3,
+          name: "v1.0.3",
+          target_commitish: "other",
+          draft: true,
+          prerelease: false
+        }),
+        createRelease({
+          id: 2,
+          name: "v1.0.2",
+          target_commitish: "main",
+          draft: true,
+          prerelease: false
+        }),
+        createRelease({
+          id: 1,
+          name: "v1.0.1",
+          target_commitish: "main",
+          draft: true,
+          prerelease: false
+        })
+      )
+    )
 
-    const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
+    const releases = fetchReleases(context, 30)
     const release = await releases.findLastDraft("main")
 
     expect(release).not.toBeNull()
@@ -265,12 +369,15 @@ describe("findLastDraft", () => {
   })
 
   it("should return null and return early on non-draft as draft always first", async () => {
-    mockSinglePageResponse(mockRequest, Array.of(
+    mockSinglePageResponse(
+      mockRequest,
+      Array.of(
         createRelease({ id: 4, name: "v1.0.3", target_commitish: "main", draft: false }),
         createRelease({ id: 3, name: "v1.0.2", target_commitish: "main", draft: true }) // Should not be reached
-    ))
+      )
+    )
 
-    const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
+    const releases = fetchReleases(context, 30)
     const release = await releases.findLastDraft("main")
 
     expect(release).toBeNull()
@@ -278,20 +385,21 @@ describe("findLastDraft", () => {
   })
 
   it("should return null if no draft release found for the commitish", async () => {
-    mockSinglePageResponse(mockRequest, Array.of(
+    mockSinglePageResponse(
+      mockRequest,
+      Array.of(
         createRelease({ id: 3, name: "v1.0.3", target_commitish: "main", draft: false }),
-        createRelease({ id: 2, name: "v1.0.2", target_commitish: "other", draft: true }),
-    ))
+        createRelease({ id: 2, name: "v1.0.2", target_commitish: "other", draft: true })
+      )
+    )
 
-    const releases = fetchReleases(octokit, "test-owner", "test-repo", 30)
+    const releases = fetchReleases(context, 30)
     const release = await releases.findLastDraft("main")
 
     expect(release).toBeNull()
     expect(mockRequest).toHaveBeenCalledTimes(1)
   })
 })
-
-
 
 interface GitHubRelease {
   id: number
@@ -320,12 +428,12 @@ function createRelease(overrides: Partial<GitHubRelease> = {}): GitHubRelease {
 
 function createReleases(count: number, startIndex = 0): GitHubRelease[] {
   return Array.from({ length: count }, (_, i) =>
-      createRelease({
-        id: startIndex + i + 1,
-        tag_name: `v1.${startIndex + i}.0`,
-        name: `Release ${startIndex + i}`,
-        body: `Release body ${startIndex + i}`
-      })
+    createRelease({
+      id: startIndex + i + 1,
+      tag_name: `v1.${startIndex + i}.0`,
+      name: `Release ${startIndex + i}`,
+      body: `Release body ${startIndex + i}`
+    })
   )
 }
 
@@ -359,14 +467,14 @@ function createOctokit(): { octokit: Octokit; mockRequest: ReturnType<typeof vi.
 }
 
 function mockPaginatedResponse(
-    mockRequest: ReturnType<typeof vi.fn>,
-    pages: GitHubRelease[][]
+  mockRequest: ReturnType<typeof vi.fn>,
+  pages: GitHubRelease[][]
 ): void {
   pages.forEach((pageData, index) => {
     const hasNextPage = index < pages.length - 1
     const linkHeader = hasNextPage
-        ? `<https://api.github.com/repositories/123/releases?page=${index + 2}>; rel="next"`
-        : undefined
+      ? `<https://api.github.com/repositories/123/releases?page=${index + 2}>; rel="next"`
+      : undefined
 
     mockRequest.mockResolvedValueOnce({
       data: pageData,
@@ -377,8 +485,8 @@ function mockPaginatedResponse(
 }
 
 function mockSinglePageResponse(
-    mockRequest: ReturnType<typeof vi.fn>,
-    data: GitHubRelease[]
+  mockRequest: ReturnType<typeof vi.fn>,
+  data: GitHubRelease[]
 ): void {
   mockPaginatedResponse(mockRequest, [data])
 }
@@ -388,25 +496,23 @@ function createHttpError(message: string, status: number): Error & { status: num
 }
 
 function mockErrorResponse(
-    mockRequest: ReturnType<typeof vi.fn>,
-    message: string,
-    status: number
+  mockRequest: ReturnType<typeof vi.fn>,
+  message: string,
+  status: number
 ): void {
   mockRequest.mockRejectedValueOnce(createHttpError(message, status))
 }
 
 export async function collectReleases(
-    octokit: Octokit,
-    owner: string,
-    repo: string,
-    perPage?: number,
-    limit?: number
+  context: Context,
+  perPage?: number,
+  limit?: number
 ): Promise<Release[]> {
-  return collectAsync(fetchReleases(octokit, owner, repo, perPage), limit)
+  return collectAsync(fetchReleases(context, perPage), limit)
 }
 
 async function collectAsync<T>(source: AsyncIterable<T>, limit?: number): Promise<T[]> {
-  const result: T[] = [];
+  const result: T[] = []
   for await (const item of source) {
     result.push(item)
 

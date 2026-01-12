@@ -1,20 +1,26 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { Octokit } from "octokit"
+import { Context } from "../src/context"
 import { upsertDraftRelease } from "../src/core"
 import { RestEndpointMethodTypes } from "@octokit/plugin-rest-endpoint-methods"
 
 // todo we can really simplify this by creating interfaces around releases and PRs
 
 describe("upsertDraftRelease", () => {
-  let octokit: Octokit
   let mockGraphQL: ReturnType<typeof vi.fn>
   let mockRequest: ReturnType<typeof vi.fn>
   let mockCreateRelease: ReturnType<typeof vi.fn>
   let mockUpdateRelease: ReturnType<typeof vi.fn>
+  let context: Context
 
   beforeEach(() => {
     const mock = createOctokit()
-    octokit = mock.octokit
+    context = {
+      octokit: mock.octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main"
+    }
 
     mockGraphQL = mock.mockGraphQL
     mockRequest = mock.mockRequest
@@ -34,7 +40,7 @@ describe("upsertDraftRelease", () => {
       // No pull requests
       mockSinglePageResponse(mockGraphQL, [])
 
-      const result = await upsertDraftRelease(octokit, "test-owner", "test-repo", "main", "v0.1.0")
+      const result = await upsertDraftRelease(context, "v0.1.0")
 
       expect(result).toEqual({
         release: null,
@@ -54,7 +60,7 @@ describe("upsertDraftRelease", () => {
       // No pull requests
       mockSinglePageResponse(mockGraphQL, [])
 
-      const result = await upsertDraftRelease(octokit, "test-owner", "test-repo", "main", "v0.1.0")
+      const result = await upsertDraftRelease(context, "v0.1.0")
 
       expect(result.action).toBe("none")
       expect(result.pullRequestCount).toBe(0)
@@ -81,7 +87,7 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(octokit, "test-owner", "test-repo", "main", "v0.1.0")
+      const result = await upsertDraftRelease(context, "v0.1.0")
 
       expect(result.action).toBe("created")
       expect(result.version).toBe("v0.1.0")
@@ -126,7 +132,7 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(octokit, "test-owner", "test-repo", "main", "v0.1.0")
+      const result = await upsertDraftRelease(context, "v0.1.0")
 
       expect(result.action).toBe("created")
       expect(result.version).toBe("v1.2.4")
@@ -163,7 +169,7 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(octokit, "test-owner", "test-repo", "main", "v0.1.0")
+      const result = await upsertDraftRelease(context, "v0.1.0")
 
       expect(result.action).toBe("created")
       expect(result.version).toBe("v2.0.0")
@@ -194,7 +200,7 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(octokit, "test-owner", "test-repo", "main", "v0.1.0")
+      const result = await upsertDraftRelease(context, "v0.1.0")
 
       expect(result.action).toBe("created")
       expect(result.version).toBe("v1.6.0")
@@ -235,7 +241,7 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(octokit, "test-owner", "test-repo", "main", "v0.1.0")
+      const result = await upsertDraftRelease(context, "v0.1.0")
 
       expect(result.action).toBe("updated")
       expect(result.version).toBe("v0.9.1")
@@ -291,7 +297,7 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(octokit, "test-owner", "test-repo", "main", "v0.1.0")
+      const result = await upsertDraftRelease(context, "v0.1.0")
 
       expect(result.action).toBe("updated")
       expect(result.version).toBe("v1.1.0")
@@ -334,7 +340,7 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(octokit, "test-owner", "test-repo", "main", "v0.1.0")
+      const result = await upsertDraftRelease(context, "v0.1.0")
 
       expect(result.action).toBe("updated")
       expect(result.version).toBe("v1.0.0")
@@ -374,7 +380,7 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(octokit, "test-owner", "test-repo", "main", "v0.1.0")
+      const result = await upsertDraftRelease(context, "v0.1.0")
 
       // Should bump from v1.0.0 (main branch), not v2.0.0 (develop branch)
       expect(result.version).toBe("v1.1.0")
@@ -406,7 +412,7 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(octokit, "test-owner", "test-repo", "main", "v0.1.0")
+      const result = await upsertDraftRelease(context, "v0.1.0")
 
       expect(result.action).toBe("updated")
       // Should update release id 2 (main branch), not id 3 (develop branch)
@@ -435,7 +441,7 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(octokit, "test-owner", "test-repo", "main", "v1.0.0")
+      const result = await upsertDraftRelease(context, "v1.0.0")
 
       expect(result.version).toBe("v1.0.0")
     })
@@ -469,7 +475,7 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(octokit, "test-owner", "test-repo", "main", "v0.1.0")
+      const result = await upsertDraftRelease(context, "v0.1.0")
 
       expect(result.pullRequestCount).toBe(3)
       expect(result.versionIncrement).toBe("minor")
@@ -502,7 +508,7 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(octokit, "test-owner", "test-repo", "main", "v0.1.0")
+      const result = await upsertDraftRelease(context, "v0.1.0")
 
       // Non-conventional commits result in "none" increment, so version stays the same
       expect(result.versionIncrement).toBe("none")

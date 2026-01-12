@@ -1,4 +1,4 @@
-import { Octokit } from "octokit"
+import { Context } from "./context.js"
 import { fetchReleases } from "./releases.js"
 import { fetchPullRequests, PullRequest } from "./pull-requests.js"
 import { createDraftRelease, Release, updateRelease } from "./release.js"
@@ -26,19 +26,17 @@ export interface UpsertedReleaseResult {
  * 4. Updates existing draft release or creates a new one with the calculated version
  * 5. Does nothing if there are no new pull requests
  *
+ * @param context - Context containing octokit, owner, repo, and branch
  * @param defaultTag - Default tag to use when no prior release exists (e.g. "v0.1.0")
  * @returns Result containing the release, action taken, and metadata
  */
 export async function upsertDraftRelease(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  branch: string,
+  context: Context,
   defaultTag: string
 ): Promise<UpsertedReleaseResult> {
-  const context = await gatherReleaseContext(octokit, owner, repo, branch)
+  const releaseContext = await gatherReleaseContext(context)
 
-  if (context.pullRequests.length === 0) {
+  if (releaseContext.pullRequests.length === 0) {
     return {
       release: null,
       action: "none",
@@ -48,41 +46,29 @@ export async function upsertDraftRelease(
     }
   }
 
-  const versionIncrement = inferImpactFromPRs(context.pullRequests)
-  const nextVersion = calculateNextVersion(context.lastRelease, versionIncrement, defaultTag)
+  const versionIncrement = inferImpactFromPRs(releaseContext.pullRequests)
+  const nextVersion = calculateNextVersion(releaseContext.lastRelease, versionIncrement, defaultTag)
 
-  const { release, action } = await performUpsert(
-    octokit,
-    owner,
-    repo,
-    branch,
-    nextVersion,
-    context.lastDraft
-  )
+  const { release, action } = await performUpsert(context, nextVersion, releaseContext.lastDraft)
 
   return {
     release,
     action,
     version: nextVersion,
-    pullRequestCount: context.pullRequests.length,
+    pullRequestCount: releaseContext.pullRequests.length,
     versionIncrement
   }
 }
 
-async function gatherReleaseContext(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  branch: string
-): Promise<ReleaseContext> {
-  const releases = fetchReleases(octokit, owner, repo)
+async function gatherReleaseContext(context: Context): Promise<ReleaseContext> {
+  const releases = fetchReleases(context)
 
   // Finding releases needs to run sequentially to avoid racing on the cached data
-  const lastDraft = await releases.findLastDraft(branch)
-  const lastRelease = await releases.findLast(branch)
+  const lastDraft = await releases.findLastDraft(context.branch)
+  const lastRelease = await releases.findLast(context.branch)
 
   const mergedSince = lastRelease?.publishedAt ?? null
-  const pullRequests = await fetchPullRequests(octokit, owner, repo, branch, mergedSince).collect()
+  const pullRequests = await fetchPullRequests(context, mergedSince).collect()
 
   return {
     lastDraft,
@@ -105,24 +91,20 @@ function calculateNextVersion(
   return bumpTag(lastRelease?.tagName, increment, defaultTag)
 }
 
-// todo should really use a context object for octokit/owner/repo/branch...
 async function performUpsert(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  branch: string,
+  context: Context,
   nextVersion: string,
   existingDraft: Release | null
 ): Promise<{ release: Release; action: "created" | "updated" }> {
   if (existingDraft) {
-    const release = await updateRelease(octokit, owner, repo, {
+    const release = await updateRelease(context, {
       ...existingDraft,
       name: nextVersion,
       tagName: nextVersion
     })
     return { release, action: "updated" }
   } else {
-    const release = await createDraftRelease(octokit, owner, repo, nextVersion, branch, nextVersion)
+    const release = await createDraftRelease(context, nextVersion, context.branch, nextVersion)
     return { release, action: "created" }
   }
 }

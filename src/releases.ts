@@ -1,4 +1,4 @@
-import { Octokit } from "octokit"
+import { Context } from "./context.js"
 import { RestEndpointMethodTypes } from "@octokit/plugin-rest-endpoint-methods"
 import { CachingAsyncIterable } from "./caching-async-iterable"
 import { Release } from "./release"
@@ -71,29 +71,22 @@ export class Releases implements AsyncIterable<Release> {
 /**
  * Fetch GitHub releases lazily with pagination, only fetching more pages when needed.
  */
-export function fetchReleases(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  perPage?: number
-): Releases {
+export function fetchReleases(context: Context, perPage?: number): Releases {
   const maxReleases = (perPage ?? DEFAULT_PER_PAGE) * MAX_PAGES
 
   return new Releases(
-    new CachingAsyncIterable(createReleasesGenerator(octokit, owner, repo, perPage)),
+    new CachingAsyncIterable(createReleasesGenerator(context, perPage)),
     maxReleases
   )
 }
 
 async function* createReleasesGenerator(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
+  context: Context,
   perPage?: number
 ): AsyncGenerator<Release> {
-  const iterator = octokit.paginate.iterator(octokit.rest.repos.listReleases, {
-    owner: owner,
-    repo: repo,
+  const iterator = context.octokit.paginate.iterator(context.octokit.rest.repos.listReleases, {
+    owner: context.owner,
+    repo: context.repo,
     per_page: perPage ?? DEFAULT_PER_PAGE
   })
 
