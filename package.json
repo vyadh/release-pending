@@ -1,7 +1,7 @@
 {
-  "name": "release-party",
+  "name": "release-pending",
   "version": "0.1.0",
-  "description": "GitHub Releases for versioning and management 🎉",
+  "description": "GitHub Release-based versioning and management 📦",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {

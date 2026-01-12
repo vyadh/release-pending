@@ -1,4 +1,4 @@
-# Release Party 🎉
+# Release Pending 📦
 
 A GitHub Action for release and version management.
 
@@ -86,8 +86,8 @@ Since Node 24+ supports a proxy natively but is not enabled by default. It canno
 
 This action was born out of an attempt to adopt [Release Drafter](https://github.com/release-drafter/release-drafter), which appears to be unmaintained with various security PRs not being actioned. Forking was attempted but updating the dependencies was difficult due to various breaking changes. It seemed better to start afresh with a more efficient implementation that works with GitHub's own release notes generation and from conventional commit PR titles.
 
-[Semantic Release](https://github.com/semantic-release/semantic-release) is a comprehensive and well maintained toolkit for release and version generation that works with the commit history to generate versions. Release Party relies on PR titles and branch names, which improves efficiency and allows versions to be generated for any branch. This also makes it suitable for organizations that do not universally adopt conventional commits. It also benefits from a smaller attack surface due to its minimal dependencies.
+[Semantic Release](https://github.com/semantic-release/semantic-release) is a comprehensive and well maintained toolkit for release and version generation that works with the commit history to generate versions. Release Pending relies on PR titles and branch names, which improves efficiency and allows versions to be generated for any branch. This also makes it suitable for organizations that do not universally adopt conventional commits. It also benefits from a smaller attack surface due to its minimal dependencies.
 
-[Release Please](https://github.com/googleapis/release-please) is useful when version numbers in a repository are updated as part of a release, particularly convenient for projects it supports as an ecosystem. It makes use of release PRs, which seems a powerful and flexible approach. Release Party is aimed more at projects that prefer to keep version numbers out of the codebase where a release PR would be redundant. This action infers version bumps from PR titles rather than commits.
+[Release Please](https://github.com/googleapis/release-please) is useful when version numbers in a repository are updated as part of a release, particularly convenient for projects it supports as an ecosystem. It makes use of release PRs, which seems a powerful and flexible approach. Release Pending is aimed more at projects that prefer to keep version numbers out of the codebase where a release PR would be redundant. This action infers version bumps from PR titles rather than commits.
 
 Versioning tools like [GitVersion](https://gitversion.net) and [Cocogitto](https://docs.cocogitto.io) avoid dependencies on GitHub, but they require a full clone of the repository, which is ideally avoided for big projects.
