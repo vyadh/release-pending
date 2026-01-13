@@ -357,7 +357,15 @@ export class Octomock {
 
     const generator = async function* () {
       while (true) {
-        // Check for error injection before each page
+        // Track that we're calling listReleases (before checking anything)
+        self.mockListReleases({
+          owner: params.owner,
+          repo: params.repo,
+          per_page: perPage,
+          page
+        })
+
+        // Check for error injection first
         if (self.listReleasesError) {
           throw self.createError(self.listReleasesError)
         }
@@ -369,14 +377,6 @@ export class Octomock {
         if (pageData.length === 0) {
           break
         }
-
-        // Track that we're calling listReleases
-        self.mockListReleases({
-          owner: params.owner,
-          repo: params.repo,
-          per_page: perPage,
-          page
-        })
 
         yield {
           data: pageData,
