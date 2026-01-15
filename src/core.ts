@@ -1,6 +1,6 @@
 import { Context } from "./context.js"
 import { fetchReleases } from "./releases.js"
-import { fetchPullRequests, PullRequest } from "./pull-requests.js"
+import { fetchPullRequests } from "./pull-requests.js"
 import { createDraftRelease, Release, updateRelease } from "./release.js"
 import { bumpTag, VersionIncrement } from "./versions.js"
 import { inferImpactFromPRs } from "./version-bump-inference.js"
@@ -34,33 +34,6 @@ export async function upsertDraftRelease(
   context: Context,
   defaultTag: string
 ): Promise<UpsertedReleaseResult> {
-  const releaseContext = await gatherReleaseContext(context)
-
-  if (releaseContext.pullRequests.length === 0) {
-    return {
-      release: null,
-      action: "none",
-      version: null,
-      pullRequestCount: 0,
-      versionIncrement: "none"
-    }
-  }
-
-  const versionIncrement = inferImpactFromPRs(releaseContext.pullRequests)
-  const nextVersion = calculateNextVersion(releaseContext.lastRelease, versionIncrement, defaultTag)
-
-  const { release, action } = await performUpsert(context, nextVersion, releaseContext.lastDraft)
-
-  return {
-    release,
-    action,
-    version: nextVersion,
-    pullRequestCount: releaseContext.pullRequests.length,
-    versionIncrement
-  }
-}
-
-async function gatherReleaseContext(context: Context): Promise<ReleaseContext> {
   const releases = fetchReleases(context)
 
   // Finding releases needs to run sequentially to avoid racing on the cached data
@@ -70,17 +43,28 @@ async function gatherReleaseContext(context: Context): Promise<ReleaseContext> {
   const mergedSince = lastRelease?.publishedAt ?? null
   const pullRequests = await fetchPullRequests(context, mergedSince).collect()
 
-  return {
-    lastDraft,
-    lastRelease,
-    pullRequests
+  if (pullRequests.length === 0) {
+    return {
+      release: null,
+      action: "none",
+      version: null,
+      pullRequestCount: 0,
+      versionIncrement: "none"
+    }
   }
-}
 
-interface ReleaseContext {
-  lastDraft: Release | null
-  lastRelease: Release | null
-  pullRequests: PullRequest[]
+  const versionIncrement = inferImpactFromPRs(pullRequests)
+  const nextVersion = calculateNextVersion(lastRelease, versionIncrement, defaultTag)
+
+  const { release, action } = await performUpsert(context, nextVersion, lastDraft)
+
+  return {
+    release,
+    action,
+    version: nextVersion,
+    pullRequestCount: pullRequests.length,
+    versionIncrement
+  }
 }
 
 function calculateNextVersion(
