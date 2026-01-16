@@ -357,34 +357,35 @@ export class Octomock {
 
     const generator = async function* () {
       while (true) {
-        // Track that we're calling listReleases (before checking anything)
-        self.mockListReleases({
+        // Check for error injection first
+        if (self.listReleasesError) {
+          // Still track the call attempt for test assertions
+          self.mockListReleases({
+            owner: params.owner,
+            repo: params.repo,
+            per_page: perPage,
+            page
+          })
+          throw self.createError(self.listReleasesError)
+        }
+
+        // Use the actual mockListReleases implementation for pagination
+        const response = await self.mockListReleases({
           owner: params.owner,
           repo: params.repo,
           per_page: perPage,
           page
         })
 
-        // Check for error injection first
-        if (self.listReleasesError) {
-          throw self.createError(self.listReleasesError)
-        }
-
-        const startIndex = (page - 1) * perPage
-        const endIndex = startIndex + perPage
-        const pageData = self.releases.slice(startIndex, endIndex)
-
-        if (pageData.length === 0) {
+        if (response.data.length === 0) {
           break
         }
 
-        yield {
-          data: pageData,
-          status: 200,
-          headers: {}
-        }
+        yield response
 
-        if (endIndex >= self.releases.length) {
+        // Check if there's a next page by looking at the link header
+        const hasNextPage = response.headers.link !== undefined
+        if (!hasNextPage) {
           break
         }
 
