@@ -78,27 +78,6 @@ export class Octomock {
     this.mockCreateRelease = vi.fn()
     this.mockUpdateRelease = vi.fn()
 
-    // Setup listReleases to return paginated data
-    this.mockListReleases.mockImplementation((params: any) => {
-      const perPage = params.per_page ?? 30
-      const page = params.page ?? 1
-
-      const startIndex = (page - 1) * perPage
-      const endIndex = startIndex + perPage
-      const pageData = this.releases.slice(startIndex, endIndex)
-
-      const hasNextPage = endIndex < this.releases.length
-      const linkHeader = hasNextPage
-        ? `<https://api.github.com/repositories/123/releases?page=${page + 1}>; rel="next"`
-        : undefined
-
-      return Promise.resolve({
-        data: pageData,
-        status: 200,
-        headers: linkHeader ? { link: linkHeader } : {}
-      })
-    })
-
     // Mock paginate.iterator for releases
     this.octokit.paginate = {
       iterator: vi.fn().mockImplementation((method: any, params: any) => {
@@ -339,34 +318,36 @@ export class Octomock {
 
     const generator = async function* () {
       while (true) {
-        // Check for error injection first
-        if (self.listReleasesError) {
-          // Track the call attempt even when erroring for test assertions
-          self.mockListReleases({
-            owner: params.owner,
-            repo: params.repo,
-            per_page: perPage,
-            page
-          })
-          throw self.createError(self.listReleasesError)
-        }
-
-        // Use mockListReleases implementation for pagination
-        const response = await self.mockListReleases({
+        // Track the call attempt for test assertions
+        self.mockListReleases({
           owner: params.owner,
           repo: params.repo,
           per_page: perPage,
           page
         })
 
-        if (response.data.length === 0) {
+        // Check for error injection
+        if (self.listReleasesError) {
+          throw self.createError(self.listReleasesError)
+        }
+
+        // Pagination logic
+        const startIndex = (page - 1) * perPage
+        const endIndex = startIndex + perPage
+        const pageData = self.releases.slice(startIndex, endIndex)
+
+        if (pageData.length === 0) {
           break
         }
 
-        yield response
+        const hasNextPage = endIndex < self.releases.length
 
-        // Check if there's a next page by looking at the link header
-        const hasNextPage = response.headers.link !== undefined
+        yield {
+          data: pageData,
+          status: 200,
+          headers: {}
+        }
+
         if (!hasNextPage) {
           break
         }
