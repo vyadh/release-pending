@@ -360,6 +360,8 @@ export class Octomock {
         // Check for error injection first
         if (self.listReleasesError) {
           // Still track the call attempt for test assertions
+          // Note: mockListReleases returns a resolved promise synchronously,
+          // so it's safe to call without awaiting in the error path
           self.mockListReleases({
             owner: params.owner,
             repo: params.repo,
@@ -384,6 +386,8 @@ export class Octomock {
         yield response
 
         // Check if there's a next page by looking at the link header
+        // This is equivalent to checking endIndex < this.releases.length
+        // because mockListReleases sets the link header based on hasNextPage
         const hasNextPage = response.headers.link !== undefined
         if (!hasNextPage) {
           break
