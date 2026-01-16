@@ -193,7 +193,7 @@ describe("findLast", () => {
   })
 
   it("should find first non-draft non-prerelease with matching commitish", async () => {
-    // Add from oldest to newest (reversed by unshift)
+    // Releases are automatically sorted by ID descending
     octomock.addRelease({
       id: 0,
       name: "v1.0.0",
@@ -255,7 +255,7 @@ describe("findLast", () => {
   })
 
   it("should skip drafts and prereleases when filtering by commitish", async () => {
-    // Add from oldest to newest (reversed by unshift)
+    // Releases are automatically sorted by ID descending
     octomock.addRelease({
       id: 1,
       name: "v1.0.1",
@@ -284,11 +284,12 @@ describe("findLast", () => {
   })
 
   it("should not find release beyond MAX_PAGES (5 pages)", async () => {
-    // Add in reverse order since unshift puts newest first
-    // A sixth page beyond MAX_PAGES
+    // Releases are automatically sorted by ID descending
+    // Add releases with "main" commitish (will have lower IDs)
     octomock.addReleases(10, (i) => ({
       target_commitish: "main"
     }))
+    // Add releases with "other" commitish (will have higher IDs, appear first)
     // With perPage=10, maxReleases = 10 * 5 = 50
     octomock.addReleases(50, (i) => ({
       target_commitish: "other"
@@ -320,7 +321,7 @@ describe("findLastDraft", () => {
   })
 
   it("should find first draft non-prerelease for the same commitish", async () => {
-    // Add from oldest to newest (reversed by unshift)
+    // Releases are automatically sorted by ID descending
     octomock.addRelease({
       id: 1,
       name: "v1.0.1",
