@@ -213,14 +213,13 @@ describe("Octomock", () => {
     })
 
     it("should support finding the last draft release", async () => {
-      // Add published release first (so it's at the end when using unshift)
+      // Releases are automatically sorted with drafts first
       octomock.addRelease({
         tag_name: "v0.9.0",
         target_commitish: "main",
         draft: false,
         name: "Published Release"
       })
-      // Add draft release second (so it's at the beginning)
       octomock.addRelease({
         tag_name: "v1.0.0",
         target_commitish: "main",

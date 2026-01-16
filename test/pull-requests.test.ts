@@ -190,11 +190,11 @@ describe("fetchPullRequests", () => {
       mergedAt: "2026-01-04T00:00:00Z",
       mergeCommit: { oid: "commit_3" }
     }) // Before cutoff
-    octomock.addPullRequeet({
+    octomock.addPullRequest({
       number: 4,
       title: "PR 4",
       mergedAt: "2026-01-03T00:00:00Z",
-      oid: "commit_4"
+      mergeCommit: { oid: "commit_4" }
     })
 
     const prs = await collectPullRequests(context, mergedSince, 3)

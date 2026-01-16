@@ -120,7 +120,7 @@ export class Octomock {
         prerelease: params.prerelease ?? false
       }
 
-      this.releases.unshift(newRelease)
+      this.releases.push(newRelease)
 
       return Promise.resolve({
         data: newRelease,
@@ -207,8 +207,8 @@ export class Octomock {
       ...overrides
     }
 
-    // Add to beginning to match GitHub API behavior (newest first)
-    this.releases.unshift(release)
+    // Append to the array; sorting will happen when querying
+    this.releases.push(release)
     return release
   }
 
@@ -311,12 +311,46 @@ export class Octomock {
     this.graphqlError = null
   }
 
+  /**
+   * Sort releases in GitHub display order:
+   * 1. Drafts first (sorted by ID - most recent/highest ID first)
+   * 2. Then published releases (sorted by published_at - most recent first)
+   *    If published_at is the same or not set, fall back to ID descending
+   */
+  private sortReleasesInGitHubOrder(releases: GitHubRelease[]): GitHubRelease[] {
+    return [...releases].sort((a, b) => {
+      // Drafts come before published releases
+      if (a.draft && !b.draft) return -1
+      if (!a.draft && b.draft) return 1
+
+      // Both are drafts or both are published
+      if (a.draft && b.draft) {
+        // Sort drafts by ID (descending - most recent first)
+        return b.id - a.id
+      }
+
+      // Both are published - sort by published_at (descending - most recent first)
+      const aPublishedAt = a.published_at ? new Date(a.published_at).getTime() : 0
+      const bPublishedAt = b.published_at ? new Date(b.published_at).getTime() : 0
+      
+      if (aPublishedAt !== bPublishedAt) {
+        return bPublishedAt - aPublishedAt
+      }
+      
+      // If published_at is the same (or both null), fall back to ID descending
+      return b.id - a.id
+    })
+  }
+
   private createReleasesIterator(params: any): AsyncIterableIterator<any> {
     const self = this
     const perPage = params.per_page ?? 30
     let page = 1
 
     const generator = async function* () {
+      // Sort releases in GitHub display order once at the start
+      const sortedReleases = self.sortReleasesInGitHubOrder(self.releases)
+
       while (true) {
         // Track the call attempt for test assertions
         self.mockListReleases({
@@ -334,13 +368,13 @@ export class Octomock {
         // Pagination logic
         const startIndex = (page - 1) * perPage
         const endIndex = startIndex + perPage
-        const pageData = self.releases.slice(startIndex, endIndex)
+        const pageData = sortedReleases.slice(startIndex, endIndex)
 
         if (pageData.length === 0) {
           break
         }
 
-        const hasNextPage = endIndex < self.releases.length
+        const hasNextPage = endIndex < sortedReleases.length
 
         yield {
           data: pageData,
