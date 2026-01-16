@@ -59,7 +59,7 @@ export class Octomock {
   readonly mockListReleases: ReturnType<typeof vi.fn>
   readonly mockCreateRelease: ReturnType<typeof vi.fn>
   readonly mockUpdateRelease: ReturnType<typeof vi.fn>
-  private mockListReleasesFunction: any
+  private mockListReleasesFunction: ReturnType<typeof vi.fn>
 
   constructor() {
     this.octokit = new Octokit({ auth: "test-token" })
