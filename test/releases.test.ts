@@ -54,12 +54,13 @@ describe("fetchReleases", () => {
   })
 
   it("should fetch next page when all releases from current page are consumed", async () => {
-    // todo no longer simulates paging
     octomock.addReleases(50)
 
     const releases = await collectReleases(context, 30)
 
     expect(releases).toHaveLength(50)
+    // todo the mock naming of these methods seems redundant now
+    // todo maybe have it on the data adding methods instead
     expect(octomock.mockListReleases).toHaveBeenCalledTimes(2)
   })
 
@@ -83,13 +84,14 @@ describe("fetchReleases", () => {
     expect(octomock.mockListReleases).toHaveBeenCalledTimes(1)
   })
 
-  it("should map draft releases appropriately", async () => {
+  it("should map releases appropriately", async () => {
     // Add published release first (appears second due to unshift)
     octomock.addRelease({
       id: 2,
       tag_name: "v1.1.0",
       name: "Published Release",
       body: "This is published",
+      published_at: "2026-01-01T12:13:14.000Z",
       draft: false
     })
     // Add draft release second (appears first due to unshift)
@@ -98,7 +100,6 @@ describe("fetchReleases", () => {
       tag_name: "v1.0.0",
       name: "Draft Release",
       body: "This is a draft",
-      published_at: "2026-01-01T12:13:14.000Z",
       draft: true
     })
 
@@ -107,12 +108,12 @@ describe("fetchReleases", () => {
     expect(releases).toHaveLength(2)
     expect(releases[0].id).toBe(1)
     expect(releases[0].tagName).toBeNull() // Draft should have null tag_name
-    expect(releases[0].draft).toBe(true)
+    expect(releases[0].draft).toBe(false)
     expect(releases[0].publishedAt).toStrictEqual(new Date("2026-01-01T12:13:14.000Z"))
 
     expect(releases[1].id).toBe(2)
     expect(releases[1].tagName).toBe("v1.1.0") // Published should have tag_name
-    expect(releases[1].draft).toBe(false)
+    expect(releases[1].draft).toBe(true)
   })
 })
 
@@ -131,12 +132,15 @@ describe("find", () => {
     }
   })
 
+  // todo need to add a test for ordering so we know our mock is right
+  // todo maybe that's better in the octomock tests though
+
   it("should find release on first page", async () => {
-    octomock.addReleases(10, (i) => ({
+    octomock.addReleases(30, (i) => ({
       tag_name: `v1.${i}.0`
     }))
 
-    const releases = fetchReleases(context, 30)
+    const releases = fetchReleases(context, 15)
     const release = await releases.find((r) => r.tagName === "v1.5.0")
 
     expect(release).not.toBeNull()
