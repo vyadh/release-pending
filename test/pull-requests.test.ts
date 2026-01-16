@@ -35,7 +35,7 @@ describe("fetchPullRequests", () => {
     expect(octomock.mockGraphQL).toHaveBeenCalledTimes(1)
   })
 
-  it("should handle commits with no PRs", async () => {
+  it("should handle a single PR", async () => {
     octomock.addPullRequest({ number: 1, title: "PR 1", mergeCommit: { oid: "def456" } })
 
     const prs = await collectPullRequests(context, inclusiveMergedSince, 100)
@@ -62,12 +62,11 @@ describe("fetchPullRequests", () => {
   })
 
   it("should fetch next page when all PRs from current page are consumed", async () => {
-    // todo no longer properly simulates paging
     octomock.addPullRequests(50)
 
     const prs = await collectPullRequests(context, inclusiveMergedSince, 30)
 
-    expect(prs).toHaveLength(50) // 30 + 20 PRs
+    expect(prs).toHaveLength(50)
     expect(octomock.mockGraphQL).toHaveBeenCalledTimes(2)
   })
 
@@ -117,7 +116,6 @@ describe("fetchPullRequests", () => {
   })
 
   it("should yield PRs lazily", async () => {
-    // todo no longer properly simulates paging
     octomock.addPullRequests(200)
 
     let count = 0
@@ -173,7 +171,6 @@ describe("fetchPullRequests", () => {
 
   it("should stop paging when first PR before mergedSince date is found", async () => {
     const mergedSince = new Date("2026-01-05T00:00:00Z")
-    //todo no longer properly paging
     // Add in reverse chronological order (newest first)
     octomock.addPullRequest({
       number: 1,
@@ -193,8 +190,14 @@ describe("fetchPullRequests", () => {
       mergedAt: "2026-01-04T00:00:00Z",
       mergeCommit: { oid: "commit_3" }
     }) // Before cutoff
+    octomock.addPullRequeet({
+      number: 4,
+      title: "PR 4",
+      mergedAt: "2026-01-03T00:00:00Z",
+      oid: "commit_4"
+    })
 
-    const prs = await collectPullRequests(context, mergedSince)
+    const prs = await collectPullRequests(context, mergedSince, 3)
 
     // Should only yield PRs 1 and 2, and stop when PR 3 (before cutoff) is encountered
     expect(prs).toHaveLength(2)
@@ -205,6 +208,7 @@ describe("fetchPullRequests", () => {
   })
 })
 
+// todo delete, redundant
 async function collectPullRequests(
   context: Context,
   mergedSince: Date | null,
