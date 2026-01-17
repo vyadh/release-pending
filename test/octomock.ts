@@ -347,58 +347,53 @@ export class Octomock {
     })
   }
 
-  private createReleasesIterator(
+  private async *createReleasesIterator(
     params: RestEndpointMethodTypes["repos"]["listReleases"]["parameters"]
   ): AsyncIterableIterator<ReleasesPage> {
-    const self = this
     const perPage = params.per_page ?? 30
     let page = 1
 
-    const generator = async function* () {
-      // Sort releases in GitHub display order once at the start
-      const sortedReleases = self.sortReleasesInGitHubOrder(self.releases)
+    // Sort releases in GitHub display order once at the start
+    const sortedReleases = this.sortReleasesInGitHubOrder(this.releases)
 
-      while (true) {
-        // Track the call attempt for test assertions
-        // @ts-expect-error IntelliJ bug? This is not a constructor
-        self.listReleases({
-          owner: params.owner,
-          repo: params.repo,
-          per_page: perPage,
-          page
-        })
+    while (true) {
+      // Track the call attempt for test assertions
+      // @ts-expect-error IntelliJ bug? This is not a constructor
+      this.listReleases({
+        owner: params.owner,
+        repo: params.repo,
+        per_page: perPage,
+        page
+      })
 
-        // Check for error injection
-        if (self.listReleasesError) {
-          throw self.createError(self.listReleasesError)
-        }
-
-        // Pagination logic
-        const startIndex = (page - 1) * perPage
-        const endIndex = startIndex + perPage
-        const pageData = sortedReleases.slice(startIndex, endIndex)
-
-        if (pageData.length === 0) {
-          break
-        }
-
-        const hasNextPage = endIndex < sortedReleases.length
-
-        yield {
-          data: pageData,
-          status: 200,
-          headers: {}
-        }
-
-        if (!hasNextPage) {
-          break
-        }
-
-        page++
+      // Check for error injection
+      if (this.listReleasesError) {
+        throw this.createError(this.listReleasesError)
       }
-    }
 
-    return generator() as AsyncIterableIterator<ReleasesPage>
+      // Pagination logic
+      const startIndex = (page - 1) * perPage
+      const endIndex = startIndex + perPage
+      const pageData = sortedReleases.slice(startIndex, endIndex)
+
+      if (pageData.length === 0) {
+        break
+      }
+
+      const hasNextPage = endIndex < sortedReleases.length
+
+      yield {
+        data: pageData,
+        status: 200,
+        headers: {}
+      }
+
+      if (!hasNextPage) {
+        break
+      }
+
+      page++
+    }
   }
 
   private handleGraphQLQuery(
