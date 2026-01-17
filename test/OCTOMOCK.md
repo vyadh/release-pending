@@ -61,7 +61,7 @@ octomock.addRelease({
 })
 
 // Add a draft release
-// Drafts will appear first when queried, sorted by ID
+// Drafts will appear first when queried, sorted by id
 octomock.addRelease({
   tag_name: "v1.1.0",
   name: "Release 1.1.0",

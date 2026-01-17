@@ -8,7 +8,7 @@ import { RestEndpointMethodTypes } from "@octokit/plugin-rest-endpoint-methods"
 export interface GitHubRelease {
   id: number
   tag_name: string
-  target_commitish: string
+  target_commitish: string | undefined
   name: string | null
   body: string | null
   published_at: string | null
@@ -80,7 +80,7 @@ export class Octomock {
 
     // Mock paginate.iterator for releases
     this.octokit.paginate = {
-      iterator: vi.fn().mockImplementation((method: any, params: any) => {
+      iterator: vi.fn().mockImplementation((_: any, params: any) => {
         // Only paginate.iterator is used by production code (releases.ts)
         // Direct calls to listReleases are not supported
         return this.createReleasesIterator(params)
@@ -93,6 +93,7 @@ export class Octomock {
       if (this.createReleaseError) {
         return Promise.reject(this.createError(this.createReleaseError))
       }
+      // @ts-ignore
       return this.mockCreateRelease(params)
     }) as typeof this.octokit.rest.repos.createRelease
 
@@ -135,6 +136,7 @@ export class Octomock {
       if (this.updateReleaseError) {
         return Promise.reject(this.createError(this.updateReleaseError))
       }
+      // @ts-ignore
       return this.mockUpdateRelease(params)
     }) as typeof this.octokit.rest.repos.updateRelease
 
@@ -153,7 +155,7 @@ export class Octomock {
       if (releaseIndex === -1) {
         return Promise.reject(
           this.createError({
-            message: `Release with ID ${params.release_id} not found`,
+            message: `Release with id ${params.release_id} not found`,
             status: 404
           })
         )
@@ -191,6 +193,7 @@ export class Octomock {
 
   /**
    * Add a release to the internal state
+   * todo stageRelease
    */
   addRelease(overrides: Partial<GitHubRelease> = {}): GitHubRelease {
     const releaseId = this.nextReleaseId++
@@ -206,8 +209,6 @@ export class Octomock {
       prerelease: false,
       ...overrides
     }
-
-    // Append to the array; sorting will happen when querying
     this.releases.push(release)
     return release
   }
@@ -250,27 +251,16 @@ export class Octomock {
    * @param count Number of pull requests to add
    * @param fn Optional function to customize each PR based on its index (0-based)
    */
-  addPullRequests(count: number, fn?: (index: number) => Partial<GitHubPullRequest>): GitHubPullRequest[] {
+  addPullRequests(
+    count: number,
+    fn?: (index: number) => Partial<GitHubPullRequest>
+  ): GitHubPullRequest[] {
     const prs: GitHubPullRequest[] = []
     for (let i = 0; i < count; i++) {
       const overrides = fn ? fn(i) : {}
       prs.push(this.addPullRequest(overrides))
     }
     return prs
-  }
-
-  /**
-   * Clear all releases
-   */
-  clearReleases(): void {
-    this.releases = []
-  }
-
-  /**
-   * Clear all pull requests
-   */
-  clearPullRequests(): void {
-    this.pullRequests = []
   }
 
   /**
@@ -313,9 +303,9 @@ export class Octomock {
 
   /**
    * Sort releases in GitHub display order:
-   * 1. Drafts first (sorted by ID - most recent/highest ID first)
+   * 1. Drafts first (sorted by id - most recent/highest id first)
    * 2. Then published releases (sorted by published_at - most recent first)
-   *    If published_at is the same or not set, fall back to ID descending
+   *    If published_at is the same or not set, fall back to id descending
    */
   private sortReleasesInGitHubOrder(releases: GitHubRelease[]): GitHubRelease[] {
     return [...releases].sort((a, b) => {
@@ -325,19 +315,19 @@ export class Octomock {
 
       // Both are drafts or both are published
       if (a.draft && b.draft) {
-        // Sort drafts by ID (descending - most recent first)
+        // Sort drafts by id descending (most recent first)
         return b.id - a.id
       }
 
       // Both are published - sort by published_at (descending - most recent first)
       const aPublishedAt = a.published_at ? new Date(a.published_at).getTime() : 0
       const bPublishedAt = b.published_at ? new Date(b.published_at).getTime() : 0
-      
+
       if (aPublishedAt !== bPublishedAt) {
         return bPublishedAt - aPublishedAt
       }
-      
-      // If published_at is the same (or both null), fall back to ID descending
+
+      // If published_at is the same (or both null), fall back to id descending
       return b.id - a.id
     })
   }
@@ -353,6 +343,7 @@ export class Octomock {
 
       while (true) {
         // Track the call attempt for test assertions
+        // @ts-ignore
         self.mockListReleases({
           owner: params.owner,
           repo: params.repo,

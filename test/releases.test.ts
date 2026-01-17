@@ -85,7 +85,6 @@ describe("fetchReleases", () => {
   })
 
   it("should map releases appropriately", async () => {
-    // Add published release first
     octomock.addRelease({
       id: 2,
       tag_name: "v1.1.0",
@@ -94,8 +93,6 @@ describe("fetchReleases", () => {
       published_at: "2026-01-01T12:13:14.000Z",
       draft: false
     })
-    // Add draft release second
-    // With sorting, draft will appear first in results
     octomock.addRelease({
       id: 1,
       tag_name: "v1.0.0",
@@ -107,6 +104,7 @@ describe("fetchReleases", () => {
     const releases = await collectReleases(context)
 
     expect(releases).toHaveLength(2)
+
     // Draft should appear first
     expect(releases[0].id).toBe(1)
     expect(releases[0].tagName).toBeNull() // Draft should have null tag_name
@@ -149,7 +147,7 @@ describe("find", () => {
 
     expect(release).not.toBeNull()
     expect(release?.tagName).toBe("v1.5.0")
-    // With sorting by ID descending, v1.5.0 (ID=6) is on page 2
+    // With sorting, v1.5.0 (id=6) is on page 2
     expect(octomock.mockListReleases).toHaveBeenCalledTimes(2)
   })
 
@@ -193,7 +191,7 @@ describe("findLast", () => {
   })
 
   it("should find first non-draft non-prerelease with matching commitish", async () => {
-    // Releases are automatically sorted by ID descending
+    // Releases are automatically sorted by id descending
     octomock.addRelease({
       id: 0,
       name: "v1.0.0",
@@ -255,7 +253,7 @@ describe("findLast", () => {
   })
 
   it("should skip drafts and prereleases when filtering by commitish", async () => {
-    // Releases are automatically sorted by ID descending
+    // Releases are automatically sorted by id descending
     octomock.addRelease({
       id: 1,
       name: "v1.0.1",
@@ -284,14 +282,14 @@ describe("findLast", () => {
   })
 
   it("should not find release beyond MAX_PAGES (5 pages)", async () => {
-    // Releases are automatically sorted by ID descending
-    // Add releases with "main" commitish (will have lower IDs)
-    octomock.addReleases(10, (i) => ({
+    // Releases are automatically sorted by id descending
+    // Add releases with "main" commitish (will have lower id)
+    octomock.addReleases(10, (_) => ({
       target_commitish: "main"
     }))
-    // Add releases with "other" commitish (will have higher IDs, appear first)
+    // Add releases with "other" commitish (will have higher id, appear first)
     // With perPage=10, maxReleases = 10 * 5 = 50
-    octomock.addReleases(50, (i) => ({
+    octomock.addReleases(50, (_) => ({
       target_commitish: "other"
     }))
 
@@ -321,7 +319,7 @@ describe("findLastDraft", () => {
   })
 
   it("should find first draft non-prerelease for the same commitish", async () => {
-    // Releases are automatically sorted by ID descending
+    // Releases are automatically sorted by id descending
     octomock.addRelease({
       id: 1,
       name: "v1.0.1",
