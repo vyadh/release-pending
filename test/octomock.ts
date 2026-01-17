@@ -61,7 +61,7 @@ interface GraphQLPullRequestsResponse {
 }
 
 /**
- * Page shape returned by the mocked REST paginate.iterator for releases
+ * Page shape returned by the mocked REST `paginate.iterator` for releases
  */
 interface ReleasesPage {
   data: GitHubRelease[]

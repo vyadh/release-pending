@@ -5,8 +5,7 @@ on:
     branches:
       - main
   pull_request:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   lint:
@@ -32,10 +31,5 @@ jobs:
       - name: Type check
         run: npm run type-check
 
-      - name: Setup Biome CLI
-        uses: biomejs/setup-biome@v2
-        with:
-          version: latest
-
       - name: Lint
-        run: biome ci --reporter=github
+        run: npm run lint-ci
