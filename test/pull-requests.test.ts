@@ -208,7 +208,6 @@ describe("fetchPullRequests", () => {
   })
 })
 
-// todo delete, redundant
 async function collectPullRequests(
   context: Context,
   mergedSince: Date | null,

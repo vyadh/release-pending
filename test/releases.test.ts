@@ -59,8 +59,6 @@ describe("fetchReleases", () => {
     const releases = await collectReleases(context, 30)
 
     expect(releases).toHaveLength(50)
-    // todo the mock naming of these methods seems redundant now
-    // todo maybe have it on the data adding methods instead
     expect(octomock.listReleases).toHaveBeenCalledTimes(2)
   })
 
@@ -133,9 +131,6 @@ describe("find", () => {
       branch: "main"
     }
   })
-
-  // todo need to add a test for ordering so we know our mock is right
-  // todo maybe that's better in the octomock tests though
 
   it("should find release on first page", async () => {
     octomock.stageReleases(30, (i) => ({

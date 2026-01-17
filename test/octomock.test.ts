@@ -48,6 +48,28 @@ describe("Octomock", () => {
       expect(octomock.listReleases).toHaveBeenCalledTimes(2) // Two pages
     })
 
+    it("releases should be in normal GitHub order", async () => {
+      let day1 = "2026-01-01T00:00:00Z"
+      let day2 = "2026-01-03T00:00:00Z"
+      let day3 = "2026-01-02T00:00:00Z"
+      octomock.stageRelease({ id: 0, name: "v0", draft: false, published_at: day1 })
+      octomock.stageRelease({ id: 2, name: "v2", draft: false, published_at: day2 })
+      octomock.stageRelease({ id: 5, name: "v5", draft: true })
+      octomock.stageRelease({ id: 1, name: "v1", draft: false, published_at: day3 })
+      octomock.stageRelease({ id: 3, name: "v3", draft: true })
+      octomock.stageRelease({ id: 4, name: "v4", draft: true })
+
+      const releases = await collectReleases(context)
+
+      // Releases returned in this order
+      expect(releases[0].name).toBe("v5")
+      expect(releases[1].name).toBe("v4")
+      expect(releases[2].name).toBe("v3")
+      expect(releases[3].name).toBe("v2")
+      expect(releases[4].name).toBe("v1")
+      expect(releases[5].name).toBe("v0")
+    })
+
     it("should create a draft release", async () => {
       const release = await createDraftRelease(context, "v2.0.0", "main", "Version 2.0.0")
 

@@ -80,11 +80,15 @@ export class Octomock {
 
     // Mock paginate.iterator for releases
     this.octokit.paginate = {
-      iterator: vi.fn().mockImplementation((_: any, params: any) => {
-        // Only paginate.iterator is used by production code (releases.ts)
-        // Direct calls to listReleases are not supported
-        return this.createReleasesIterator(params)
-      })
+      iterator: vi
+        .fn()
+        .mockImplementation(
+          (_: any, params: RestEndpointMethodTypes["repos"]["listReleases"]["parameters"]) => {
+            // Only paginate.iterator is used by production code (releases.ts)
+            // Direct calls to listReleases are not supported
+            return this.createReleasesIterator(params)
+          }
+        )
     } as any
 
     // Mock createRelease
@@ -93,7 +97,7 @@ export class Octomock {
       if (this.createReleaseError) {
         return Promise.reject(this.createError(this.createReleaseError))
       }
-      // @ts-ignore
+      // @ts-expect-error IntelliJ bug? This is not a constructor
       return this.createRelease(params)
     }) as typeof this.octokit.rest.repos.createRelease
 
@@ -136,7 +140,7 @@ export class Octomock {
       if (this.updateReleaseError) {
         return Promise.reject(this.createError(this.updateReleaseError))
       }
-      // @ts-ignore
+      // @ts-expect-error IntelliJ bug? This is not a constructor
       return this.updateRelease(params)
     }) as typeof this.octokit.rest.repos.updateRelease
 
@@ -321,7 +325,9 @@ export class Octomock {
     })
   }
 
-  private createReleasesIterator(params: any): AsyncIterableIterator<any> {
+  private createReleasesIterator(
+    params: RestEndpointMethodTypes["repos"]["listReleases"]["parameters"]
+  ): AsyncIterableIterator<any> {
     const self = this
     const perPage = params.per_page ?? 30
     let page = 1
@@ -332,7 +338,7 @@ export class Octomock {
 
       while (true) {
         // Track the call attempt for test assertions
-        // @ts-ignore
+        // @ts-expect-error IntelliJ bug? This is not a constructor
         self.listReleases({
           owner: params.owner,
           repo: params.repo,
