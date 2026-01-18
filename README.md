@@ -77,6 +77,18 @@ In order to read and write releases, this action requires:
 Note also that `contents: write` is required to read non-public(?) draft releases.
 
 
+## Inputs
+
+- `default-tag` (required): The tag to use for the release if no prior release is found. Defaults to `v0.0.0`.
+
+
+## Outputs
+
+- `action`: The action taken by the release process.
+- `version`: The inferred or determined version for the release.
+- `release-id`: The numeric identifier of the created or updated release.
+
+
 ## Proxy Support
 
 Since Node 24+ supports a proxy natively but is not enabled by default. It cannot be enabled internally to this action, but can be enabled by setting `NODE_USE_ENV_PROXY=1` on the GitHub runner or an environment variable in the workflow that calls the action. See [Node.js docs](https://nodejs.org/api/cli.html#node_use_env_proxy1) for more information.

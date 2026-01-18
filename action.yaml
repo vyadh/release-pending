@@ -7,14 +7,18 @@ branding:
   color: black
 
 inputs:
-  question:
-    description: Ask Deep Thought
+  default-tag:
+    description: What tag to use for the release if no prior release is found.
     required: true
-    default: What do you get if you multiply six by nine?
+    default: v0.0.0
 
 outputs:
-  answer:
-    description: The answer provided by Deep Thought's successor (Earth)
+  action:
+    description: The action taken by the release process.
+  version:
+    description: The inferred or determined version for the release.
+  release-id:
+    description: The numeric identifier of the created or updated release.
 
 runs:
   using: node24
