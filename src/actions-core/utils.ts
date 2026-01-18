@@ -15,7 +15,7 @@ export function toCommandValue(input: DataItem): string {
   if (input === null || input === undefined) {
     return ""
   } else if (typeof input === "string") {
-    return input as string
+    return input
   }
   return JSON.stringify(input)
 }

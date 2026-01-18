@@ -1,7 +1,7 @@
 import type { Octokit } from "octokit"
-import type { Context } from "./context.js"
+import type { Context } from "./context"
 import { upsertDraftRelease } from "./core"
-import { createOctokit } from "./octokit-factory.js"
+import { createOctokit } from "./octokit-factory"
 import { fetchPullRequests } from "./pull-requests"
 import { fetchReleases } from "./releases"
 

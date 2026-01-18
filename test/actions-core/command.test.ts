@@ -1,5 +1,5 @@
 import * as os from "node:os"
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import * as command from "../../src/actions-core/command"
 
 let originalWriteFunction: (str: string) => boolean
@@ -12,8 +12,6 @@ describe("@actions/core/src/command", () => {
   beforeEach(() => {
     process.stdout.write = vi.fn()
   })
-
-  afterEach(() => {})
 
   afterAll(() => {
     process.stdout.write = originalWriteFunction as unknown as (str: string) => boolean

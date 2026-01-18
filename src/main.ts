@@ -10,7 +10,11 @@ export async function main(): Promise<void> {
     // run()
 
     setOutput("answer", 42)
-  } catch (error) {
-    if (error instanceof Error) setFailed(error.message)
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      setFailed(error.message)
+    } else {
+      setFailed(JSON.stringify(error))
+    }
   }
 }
