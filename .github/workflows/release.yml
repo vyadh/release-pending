@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: release
+          fetch-depth: 0
+
+      - name: Merge main into release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git merge origin/main --no-edit || {
+            echo "Merge conflict occurred while merging main into release branch."
+            exit 1
+          }
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Push to release branch
+        run: |
+          git add --force dist/index.js
+          if git diff --staged --quiet; then
+            echo "No changes to commit on release branch. Skipping."
+          else
+            git commit -m "ci: new release"
+            git push origin release
+          fi
