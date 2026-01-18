@@ -2,6 +2,7 @@
 format:
     npm run format
 
+
 [group("update")]
 update:
     just update-command "npm audit fix --force"

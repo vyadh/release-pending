@@ -32,9 +32,17 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Check dist folder
+      - name: Check dist
         run: |
           if [ ! -f dist/index.js ]; then
             echo "Error: dist/index.js not found after build"
+            exit 1
+          fi
+
+      - name: Validate PRs raised to main
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        run: |
+          if git ls-files --error-unmatch -- "dist/index.js" 2>/dev/null; then
+            echo "Error: dist/index.js should not be added to the repository manually"
             exit 1
           fi
