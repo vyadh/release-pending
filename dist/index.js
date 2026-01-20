@@ -115,6 +115,7 @@ function setOutput(name, value) {
   const filePath = process.env.GITHUB_OUTPUT || "";
   if (filePath) {
     issueFileCommand("OUTPUT", prepareKeyValueMessage(name, value));
+    return;
   }
   process.stdout.write(os3.EOL);
   issueCommand("set-output", { name }, toCommandValue(value));
