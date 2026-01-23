@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 import type { Context } from "@/context"
 import { fetchPullRequests } from "@/data/pull-requests"
 import { createDraftRelease, updateRelease } from "@/data/release"
+import { generateReleaseNotes } from "@/data/release_notes"
 import { fetchReleases } from "@/data/releases"
 import { Octomock } from "./octomock"
 
@@ -329,6 +330,77 @@ describe("Octomock", () => {
       expect(prs[0].title).toBe("Custom PR 0")
       expect(prs[1].number).toBe(11)
       expect(prs[2].mergedAt).toBe("2026-01-12T00:00:00Z")
+    })
+  })
+
+  describe("release notes generation", () => {
+    it("should generate release notes with correct parameters", async () => {
+      const notes = await generateReleaseNotes(context, "v2.0.0", "main", "v1.0.0")
+
+      expect(octomock.generateReleaseNotes).toHaveBeenCalledWith({
+        owner: "test-owner",
+        repo: "test-repo",
+        tag_name: "v2.0.0",
+        target_commitish: "main",
+        previous_tag_name: "v1.0.0"
+      })
+
+      expect(notes).toBe("## What's Changed\n\n* Changes from v1.0.0 to v2.0.0\n* Target: main")
+    })
+
+    it("should generate release notes without previous_tag_name when null", async () => {
+      const notes = await generateReleaseNotes(context, "v2.0.0", "main", null)
+
+      expect(octomock.generateReleaseNotes).toHaveBeenCalledWith({
+        owner: "test-owner",
+        repo: "test-repo",
+        tag_name: "v2.0.0",
+        target_commitish: "main"
+      })
+
+      expect(notes).toBe("## What's Changed\n\n* Changes for v2.0.0\n* Target: main")
+    })
+
+    it("should handle API errors gracefully", async () => {
+      octomock.injectGenerateReleaseNotesError({ message: "Repository not found", status: 404 })
+
+      // noinspection ES6RedundantAwait
+      await expect(
+        generateReleaseNotes(
+          {
+            ...context,
+            repo: "nonexistent-repo"
+          },
+          "v1.0.0",
+          "main",
+          "v0.9.0"
+        )
+      ).rejects.toThrow("Repository not found")
+    })
+
+    it("should handle authentication errors", async () => {
+      octomock.injectGenerateReleaseNotesError({ message: "Bad credentials", status: 401 })
+
+      // noinspection ES6RedundantAwait
+      await expect(generateReleaseNotes(context, "v1.0.0", "main", "v0.9.0")).rejects.toThrow(
+        "Bad credentials"
+      )
+    })
+
+    it("should handle permission errors", async () => {
+      octomock.injectGenerateReleaseNotesError({ message: "Forbidden", status: 403 })
+
+      // noinspection ES6RedundantAwait
+      await expect(generateReleaseNotes(context, "v2.0.0", "main", "v1.0.0")).rejects.toThrow("Forbidden")
+    })
+
+    it("should handle tag not found errors", async () => {
+      octomock.injectGenerateReleaseNotesError({ message: "No common ancestor", status: 422 })
+
+      // noinspection ES6RedundantAwait
+      await expect(generateReleaseNotes(context, "v3.0.0", "main", "invalid-tag")).rejects.toThrow(
+        "No common ancestor"
+      )
     })
   })
 })

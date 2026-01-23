@@ -17,6 +17,7 @@ export interface Release {
 
 type CreateReleaseResponse = RestEndpointMethodTypes["repos"]["createRelease"]["response"]
 type CreateReleaseData = CreateReleaseResponse["data"]
+type UpdateReleaseRequest = RestEndpointMethodTypes["repos"]["updateRelease"]["parameters"]
 type UpdateReleaseResponse = RestEndpointMethodTypes["repos"]["updateRelease"]["response"]
 type UpdateReleaseData = UpdateReleaseResponse["data"]
 
@@ -46,17 +47,18 @@ export async function createDraftRelease(
  * Updates an existing release with the values from the provided Release instance.
  */
 export async function updateRelease(context: Context, release: Release): Promise<Release> {
-  const response = await context.octokit.rest.repos.updateRelease({
+  const params: UpdateReleaseRequest = {
     owner: context.owner,
     repo: context.repo,
     release_id: release.id,
     tag_name: release.tagName ?? undefined,
     target_commitish: release.targetCommitish,
     name: release.name ?? undefined,
+    body: release.body ?? undefined,
     draft: release.draft,
     prerelease: release.prerelease
-  })
-
+  }
+  const response = await context.octokit.rest.repos.updateRelease(params)
   return mapRelease(response.data)
 }
 

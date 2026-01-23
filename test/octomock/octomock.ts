@@ -84,6 +84,7 @@ export class Octomock {
   private listReleasesError: ErrorConfig | null = null
   private createReleaseError: ErrorConfig | null = null
   private updateReleaseError: ErrorConfig | null = null
+  private generateReleaseNotesError: ErrorConfig | null = null
   private graphQlError: ErrorConfig | null = null
 
   readonly octokit: Octokit
@@ -91,6 +92,7 @@ export class Octomock {
   readonly listReleases: ReturnType<typeof vi.fn>
   readonly createRelease: ReturnType<typeof vi.fn>
   readonly updateRelease: ReturnType<typeof vi.fn>
+  readonly generateReleaseNotes: ReturnType<typeof vi.fn>
 
   constructor() {
     this.octokit = new Octokit({ auth: "test-token" })
@@ -109,6 +111,7 @@ export class Octomock {
     this.listReleases = vi.fn()
     this.createRelease = vi.fn()
     this.updateRelease = vi.fn()
+    this.generateReleaseNotes = vi.fn()
 
     // Mock paginate.iterator for releases
     type ListReleasesParams = RestEndpointMethodTypes["repos"]["listReleases"]["parameters"]
@@ -215,9 +218,49 @@ export class Octomock {
       })
     })
 
+    // Mock generateReleaseNotes
+    type GenerateReleaseNotesParams = RestEndpointMethodTypes["repos"]["generateReleaseNotes"]["parameters"]
+    const mockGenerateReleaseNotesFunction = vi
+      .fn()
+      .mockImplementation((params: GenerateReleaseNotesParams) => {
+        if (this.generateReleaseNotesError) {
+          return Promise.reject(this.createError(this.generateReleaseNotesError))
+        }
+        // @ts-expect-error IntelliJ bug? This is not a constructor
+        return this.generateReleaseNotes(params)
+      }) as typeof this.octokit.rest.repos.generateReleaseNotes
+
+    mockGenerateReleaseNotesFunction.endpoint = vi
+      .fn()
+      .mockImplementation((params: GenerateReleaseNotesParams) => {
+        return {
+          method: "POST",
+          url: `https://api.github.com/repos/${params.owner}/${params.repo}/releases/generate-notes`,
+          headers: { accept: "application/vnd.github+json" }
+        }
+      })
+
+    this.generateReleaseNotes.mockImplementation((params: GenerateReleaseNotesParams) => {
+      const name = `Release ${params.tag_name}`
+      const changesText = params.previous_tag_name
+        ? `Changes from ${params.previous_tag_name} to ${params.tag_name}`
+        : `Changes for ${params.tag_name}`
+      const body = `## What's Changed\n\n* ${changesText}\n* Target: ${params.target_commitish}`
+
+      return Promise.resolve({
+        data: {
+          name,
+          body
+        },
+        status: 200,
+        headers: {}
+      })
+    })
+
     // Wire up the mocked methods
     this.octokit.rest.repos.createRelease = mockCreateReleaseFunction
     this.octokit.rest.repos.updateRelease = mockUpdateReleaseFunction
+    this.octokit.rest.repos.generateReleaseNotes = mockGenerateReleaseNotesFunction
   }
 
   /**
@@ -307,6 +350,13 @@ export class Octomock {
    */
   injectUpdateReleaseError(error: ErrorConfig): void {
     this.updateReleaseError = error
+  }
+
+  /**
+   * Inject an error for the next generateReleaseNotes call
+   */
+  injectGenerateReleaseNotesError(error: ErrorConfig): void {
+    this.generateReleaseNotesError = error
   }
 
   /**

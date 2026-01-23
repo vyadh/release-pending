@@ -118,14 +118,14 @@ describe("updateRelease", () => {
       tag_name: "v3.0.1",
       target_commitish: "feature-branch",
       name: "Updated Name",
+      body: "Some updated body",
       draft: true,
       prerelease: true
     })
 
     expect(release).toStrictEqual({
       ...inputRelease,
-      tagName: null,
-      body: "Old body" // Body is not updated because it's not sent in the update request
+      tagName: null
     })
   })
 
@@ -160,6 +160,7 @@ describe("updateRelease", () => {
       tag_name: "v1.0.0",
       target_commitish: "main",
       name: "Version 1.0.0",
+      body: "Existing body",
       draft: false,
       prerelease: false
     })
@@ -188,7 +189,7 @@ describe("updateRelease", () => {
       tagName: "v5.0.0",
       targetCommitish: "main",
       name: "Version 5.0.0",
-      body: "This body should not be sent",
+      body: "Some body",
       publishedAt: new Date("2026-01-01T00:00:00Z"),
       draft: false,
       prerelease: false

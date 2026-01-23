@@ -1,11 +1,11 @@
 import type { Context } from "@/context"
 import { fetchPullRequests } from "@/data/pull-requests"
 import { createDraftRelease, type Release, updateRelease } from "@/data/release"
+import { generateReleaseNotes } from "@/data/release_notes"
 import { fetchReleases } from "@/data/releases"
 import { inferImpactFromPRs } from "@/versioning/version-bump-inference"
 import { bumpTag, type VersionIncrement } from "@/versioning/versions"
 
-// todo need to re-generate release notes
 // todo also need a version that just infers the next tag for running on feature branches
 
 export interface UpsertedReleaseResult {
@@ -56,7 +56,7 @@ export async function upsertDraftRelease(
   const versionIncrement = inferImpactFromPRs(pullRequests)
   const nextVersion = calculateNextVersion(lastRelease, versionIncrement, defaultTag)
 
-  const { release, action } = await performUpsert(context, nextVersion, lastDraft)
+  const { release, action } = await performUpsert(context, nextVersion, lastDraft, lastRelease)
 
   return {
     release,
@@ -78,13 +78,21 @@ function calculateNextVersion(
 async function performUpsert(
   context: Context,
   nextVersion: string,
-  existingDraft: Release | null
+  existingDraft: Release | null,
+  lastRelease: Release | null
 ): Promise<{ release: Release; action: "created" | "updated" }> {
   if (existingDraft) {
+    const body = await generateReleaseNotes(
+      context,
+      nextVersion,
+      context.branch,
+      lastRelease?.tagName ?? null
+    )
     const release = await updateRelease(context, {
       ...existingDraft,
       name: nextVersion,
-      tagName: nextVersion
+      tagName: nextVersion,
+      body: body
     })
     return { release, action: "updated" }
   } else {
