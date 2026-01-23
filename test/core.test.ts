@@ -220,7 +220,7 @@ describe("upsertDraftRelease", () => {
           id: 10,
           tag_name: "v0.9.1",
           name: "v0.9.1",
-          body: "Release body",
+          body: "## What's Changed\n\n* Changes from v0.9.0 to v0.9.1\n* Target: main",
           target_commitish: "main",
           published_at: "2026-01-01T00:00:00Z",
           draft: true,
@@ -237,6 +237,14 @@ describe("upsertDraftRelease", () => {
       expect(result.versionIncrement).toBe("patch")
       expect(result.release?.id).toBe(10)
 
+      expect(octomock.generateReleaseNotes).toHaveBeenCalledWith({
+        owner: "test-owner",
+        repo: "test-repo",
+        tag_name: "v0.9.1",
+        target_commitish: "main",
+        previous_tag_name: "v0.9.0"
+      })
+
       expect(octomock.updateRelease).toHaveBeenCalledWith({
         owner: "test-owner",
         repo: "test-repo",
@@ -244,6 +252,7 @@ describe("upsertDraftRelease", () => {
         tag_name: "v0.9.1",
         target_commitish: "main",
         name: "v0.9.1",
+        body: "## What's Changed\n\n* Changes from v0.9.0 to v0.9.1\n* Target: main",
         draft: true,
         prerelease: false
       })
@@ -275,7 +284,7 @@ describe("upsertDraftRelease", () => {
           id: 20,
           tag_name: "v1.1.0",
           name: "v1.1.0",
-          body: "Release body",
+          body: "## What's Changed\n\n* Changes from v1.0.0 to v1.1.0\n* Target: main",
           target_commitish: "main",
           published_at: "2026-01-01T00:00:00Z",
           draft: true,
@@ -291,6 +300,14 @@ describe("upsertDraftRelease", () => {
       expect(result.version).toBe("v1.1.0")
       expect(result.pullRequestCount).toBe(3)
       expect(result.versionIncrement).toBe("minor")
+
+      expect(octomock.generateReleaseNotes).toHaveBeenCalledWith({
+        owner: "test-owner",
+        repo: "test-repo",
+        tag_name: "v1.1.0",
+        target_commitish: "main",
+        previous_tag_name: "v1.0.0"
+      })
     })
 
     it("should update draft with major bump when breaking change detected", async () => {
@@ -317,7 +334,7 @@ describe("upsertDraftRelease", () => {
           id: 30,
           tag_name: "v1.0.0",
           name: "v1.0.0",
-          body: "Release body",
+          body: "## What's Changed\n\n* Changes from v0.5.0 to v1.0.0\n* Target: main",
           target_commitish: "main",
           published_at: "2026-01-01T00:00:00Z",
           draft: true,
@@ -332,6 +349,53 @@ describe("upsertDraftRelease", () => {
       expect(result.action).toBe("updated")
       expect(result.version).toBe("v1.0.0")
       expect(result.versionIncrement).toBe("major")
+
+      expect(octomock.generateReleaseNotes).toHaveBeenCalledWith({
+        owner: "test-owner",
+        repo: "test-repo",
+        tag_name: "v1.0.0",
+        target_commitish: "main",
+        previous_tag_name: "v0.5.0"
+      })
+    })
+
+    it("should generate release notes without previous tag when no prior published release exists", async () => {
+      // No published release, only a draft
+      octomock.stageRelease({
+        id: 40,
+        name: "v0.1.0",
+        tag_name: "v0.1.0",
+        target_commitish: "main",
+        draft: true
+      })
+      octomock.stagePullRequest({ number: 1, title: "feat: initial feature" })
+
+      octomock.updateRelease.mockResolvedValueOnce({
+        data: {
+          id: 40,
+          tag_name: "v0.1.0",
+          name: "v0.1.0",
+          body: "## What's Changed\n\n* Changes for v0.1.0\n* Target: main",
+          target_commitish: "main",
+          published_at: "2026-01-01T00:00:00Z",
+          draft: true,
+          prerelease: false
+        },
+        status: 200,
+        headers: {}
+      })
+
+      const result = await upsertDraftRelease(context, "v0.1.0")
+
+      expect(result.action).toBe("updated")
+      expect(result.version).toBe("v0.1.0")
+
+      expect(octomock.generateReleaseNotes).toHaveBeenCalledWith({
+        owner: "test-owner",
+        repo: "test-repo",
+        tag_name: "v0.1.0",
+        target_commitish: "main"
+      })
     })
   })
 
@@ -391,7 +455,7 @@ describe("upsertDraftRelease", () => {
           id: 2,
           tag_name: "v0.9.1",
           name: "v0.9.1",
-          body: "Release body",
+          body: "## What's Changed\n\n* Changes from v0.9.0 to v0.9.1\n* Target: main",
           target_commitish: "main",
           published_at: "2026-01-01T00:00:00Z",
           draft: true,
@@ -407,7 +471,8 @@ describe("upsertDraftRelease", () => {
       // Should update release id 2 (main branch), not id 3 (develop branch)
       expect(octomock.updateRelease).toHaveBeenCalledWith(
         expect.objectContaining({
-          release_id: 2
+          release_id: 2,
+          body: "## What's Changed\n\n* Changes from v0.9.0 to v0.9.1\n* Target: main"
         })
       )
     })
