@@ -8922,16 +8922,18 @@ async function createDraftRelease(context, tagName, targetCommitish, name) {
   return mapRelease(response.data);
 }
 async function updateRelease(context, release) {
-  const response = await context.octokit.rest.repos.updateRelease({
+  const params = {
     owner: context.owner,
     repo: context.repo,
     release_id: release.id,
     tag_name: release.tagName ?? void 0,
     target_commitish: release.targetCommitish,
     name: release.name ?? void 0,
+    body: release.body ?? void 0,
     draft: release.draft,
     prerelease: release.prerelease
-  });
+  };
+  const response = await context.octokit.rest.repos.updateRelease(params);
   return mapRelease(response.data);
 }
 function mapRelease(releaseData) {
@@ -8945,6 +8947,21 @@ function mapRelease(releaseData) {
     draft: releaseData.draft,
     prerelease: releaseData.prerelease
   };
+}
+
+// src/data/release_notes.ts
+async function generateReleaseNotes(context, tagName, targetCommitish, previousTagName) {
+  const params = {
+    owner: context.owner,
+    repo: context.repo,
+    tag_name: tagName,
+    target_commitish: targetCommitish
+  };
+  if (previousTagName !== null) {
+    params.previous_tag_name = previousTagName;
+  }
+  const response = await context.octokit.rest.repos.generateReleaseNotes(params);
+  return response.data.body;
 }
 
 // src/util/caching-async-iterable.ts
@@ -9165,7 +9182,7 @@ async function upsertDraftRelease(context, defaultTag) {
   }
   const versionIncrement = inferImpactFromPRs(pullRequests);
   const nextVersion = calculateNextVersion(lastRelease, versionIncrement, defaultTag);
-  const { release, action } = await performUpsert(context, nextVersion, lastDraft);
+  const { release, action } = await performUpsert(context, nextVersion, lastDraft, lastRelease);
   return {
     release,
     action,
@@ -9177,12 +9194,19 @@ async function upsertDraftRelease(context, defaultTag) {
 function calculateNextVersion(lastRelease, increment, defaultTag) {
   return bumpTag(lastRelease?.tagName, increment, defaultTag);
 }
-async function performUpsert(context, nextVersion, existingDraft) {
+async function performUpsert(context, nextVersion, existingDraft, lastRelease) {
   if (existingDraft) {
+    const body = await generateReleaseNotes(
+      context,
+      nextVersion,
+      context.branch,
+      lastRelease?.tagName ?? null
+    );
     const release = await updateRelease(context, {
       ...existingDraft,
       name: nextVersion,
-      tagName: nextVersion
+      tagName: nextVersion,
+      body
     });
     return { release, action: "updated" };
   } else {
