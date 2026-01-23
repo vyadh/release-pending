@@ -350,6 +350,21 @@ describe("Octomock", () => {
       })
     })
 
+    it("should generate release notes without previous_tag_name when null", async () => {
+      const notes = await generateReleaseNotes(context, "v2.0.0", "main", null)
+
+      expect(octomock.generateReleaseNotes).toHaveBeenCalledWith({
+        owner: "test-owner",
+        repo: "test-repo",
+        tag_name: "v2.0.0",
+        target_commitish: "main"
+      })
+
+      expect(notes).toEqual({
+        body: "## What's Changed\n\n* Changes for v2.0.0\n* Target: main"
+      })
+    })
+
     it("should handle API errors gracefully", async () => {
       octomock.injectGenerateReleaseNotesError({ message: "Repository not found", status: 404 })
 

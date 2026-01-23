@@ -33,10 +33,18 @@ describe("generateReleaseNotes", () => {
     })
   })
 
-  it("should return empty object when previousTagName is null", async () => {
+  it("should generate release notes without previous_tag_name when previousTagName is null", async () => {
     const notes = await generateReleaseNotes(context, "v2.0.0", "main", null)
 
-    expect(octomock.generateReleaseNotes).not.toHaveBeenCalled()
-    expect(notes).toEqual({})
+    expect(octomock.generateReleaseNotes).toHaveBeenCalledWith({
+      owner: "test-owner",
+      repo: "test-repo",
+      tag_name: "v2.0.0",
+      target_commitish: "main"
+    })
+
+    expect(notes).toEqual({
+      body: "## What's Changed\n\n* Changes for v2.0.0\n* Target: main"
+    })
   })
 })

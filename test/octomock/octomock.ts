@@ -242,7 +242,10 @@ export class Octomock {
 
     this.generateReleaseNotes.mockImplementation((params: GenerateReleaseNotesParams) => {
       const name = `Release ${params.tag_name}`
-      const body = `## What's Changed\n\n* Changes from ${params.previous_tag_name} to ${params.tag_name}\n* Target: ${params.target_commitish}`
+      const changesText = params.previous_tag_name
+        ? `Changes from ${params.previous_tag_name} to ${params.tag_name}`
+        : `Changes for ${params.tag_name}`
+      const body = `## What's Changed\n\n* ${changesText}\n* Target: ${params.target_commitish}`
 
       return Promise.resolve({
         data: {
