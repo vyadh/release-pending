@@ -20,23 +20,19 @@ async function run() {
   const result = await upsertDraftRelease(context, defaultTag)
 
   info(`Action Taken: ${result.action}`)
-  info(`Pull Requests: ${result.pullRequestCount}`)
-  info(`Version Increment: ${result.versionIncrement}`)
-  info(`Next Version: ${result.version ?? "n/a"}`)
-
-  if (result.release) {
-    info(`Release Id: ${result.release.id}`)
-  }
+  setOutput("action", result.action)
 
   if (result.action === "none") {
     info("\nNo outstanding PRs found, so a draft release was neither created nor updated")
-  }
+  } else {
+    info(`Last Release: ${result.lastRelease?.name ?? "(none)"}`)
+    info(`Current Draft: ${result.lastDraft?.name ?? "(none)"}`)
+    info(`Pull Requests: \n${result.pullRequestTitles.map((pr) => `  ${pr}`).join("\n")}`)
+    info(`Version Increment: ${result.versionIncrement}`)
+    info(`Next Version: ${result.version}`)
+    info(`Updated Draft: ${result.release.name}\n${result.release.body}`)
 
-  setOutput("action", result.action)
-  if (result.version) {
     setOutput("version", result.version)
-  }
-  if (result.release) {
     setOutput("release-id", result.release.id)
   }
 }

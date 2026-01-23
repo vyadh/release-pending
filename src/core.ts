@@ -8,13 +8,21 @@ import { bumpTag, type VersionIncrement } from "@/versioning/versions"
 
 // todo also need a version that just infers the next tag for running on feature branches
 
-export interface UpsertedReleaseResult {
-  release: Release | null
-  action: "created" | "updated" | "none"
-  version: string | null
-  pullRequestCount: number
-  versionIncrement: VersionIncrement
+export type NoUpdateResult = {
+  action: "none"
+  lastDraft: Release | null
+  lastRelease: Release | null
 }
+export type UpsertedReleaseResult = {
+  action: "created" | "updated"
+  lastDraft: Release | null
+  lastRelease: Release | null
+  pullRequestTitles: string[]
+  versionIncrement: VersionIncrement
+  version: string
+  release: Release
+}
+export type UpsertResult = NoUpdateResult | UpsertedReleaseResult
 
 /**
  * Upserts (creates or updates) a draft release based on merged pull requests since the last release.
@@ -30,10 +38,7 @@ export interface UpsertedReleaseResult {
  * @param defaultTag - Default tag to use when no prior release exists (e.g. "v0.1.0")
  * @returns Result containing the release, action taken, and metadata
  */
-export async function upsertDraftRelease(
-  context: Context,
-  defaultTag: string
-): Promise<UpsertedReleaseResult> {
+export async function upsertDraftRelease(context: Context, defaultTag: string): Promise<UpsertResult> {
   const releases = fetchReleases(context)
 
   // Finding releases needs to run sequentially to avoid racing on the cached data
@@ -45,11 +50,9 @@ export async function upsertDraftRelease(
 
   if (pullRequests.length === 0) {
     return {
-      release: null,
       action: "none",
-      version: null,
-      pullRequestCount: 0,
-      versionIncrement: "none"
+      lastRelease: lastRelease,
+      lastDraft: lastDraft
     }
   }
 
@@ -59,11 +62,13 @@ export async function upsertDraftRelease(
   const { release, action } = await performUpsert(context, nextVersion, lastDraft, lastRelease)
 
   return {
-    release,
-    action,
+    action: action,
+    lastDraft: lastDraft,
+    lastRelease: lastRelease,
+    pullRequestTitles: pullRequests.map((pr) => pr.title),
+    versionIncrement: versionIncrement,
     version: nextVersion,
-    pullRequestCount: pullRequests.length,
-    versionIncrement
+    release: release
   }
 }
 

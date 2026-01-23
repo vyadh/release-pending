@@ -1,4 +1,5 @@
 import type { Octokit } from "octokit"
+import { info } from "@/actions-core/core"
 import type { Context } from "@/context"
 import { upsertDraftRelease } from "@/core"
 import { fetchPullRequests } from "@/data/pull-requests"
@@ -51,19 +52,15 @@ async function simulate(octokit: Octokit, args: string[]) {
   const context: Context = { octokit, owner, repo, branch }
   const result = await upsertDraftRelease(context, defaultTag)
 
-  console.log(`\nResult:`)
-  console.log(`  Action: ${result.action}`)
-  console.log(`  Pull Requests: ${result.pullRequestCount}`)
-  console.log(`  Version Increment: ${result.versionIncrement}`)
-  console.log(`  Next Version: ${result.version ?? "N/A"}`)
-
-  if (result.release) {
-    console.log(`  Release Id: ${result.release.id}`)
-    console.log(`  Release Name: ${result.release.name}`)
-  }
-
   if (result.action === "none") {
-    console.log("\nNo outstanding PRs found, so a draft release was neither created nor updated")
+    info("\nNo outstanding PRs found, so a draft release was neither created nor updated")
+  } else {
+    info(`Last Release: ${result.lastRelease?.name ?? "(none)"}`)
+    info(`Current Draft: ${result.lastDraft?.name ?? "(none)"}`)
+    info(`Pull Requests: \n${result.pullRequestTitles.map((pr) => `  ${pr}`).join("\n")}`)
+    info(`Version Increment: ${result.versionIncrement}`)
+    info(`Next Version: ${result.version}`)
+    info(`Updated Draft: ${result.release.name}\n${result.release.body}`)
   }
 }
 
