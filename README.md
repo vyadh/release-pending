@@ -1,4 +1,4 @@
-# Release Pending 📦
+# 📦 Release Party 🎉
 
 A GitHub Action for release and version management. Maintains GitHub releases and generates version numbers without a full clone.
 

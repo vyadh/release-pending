@@ -1,5 +1,5 @@
 {
-  "name": "release-pending",
+  "name": "release-party",
   "version": "0.1.0",
   "description": "GitHub Release-based versioning and management 📦",
   "main": "dist/index.js",
