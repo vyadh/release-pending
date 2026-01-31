@@ -51,7 +51,7 @@ function logResults(result: VersionInferenceResult | UpsertedReleaseResult) {
 
 function outputVersions(result: VersionInferenceResult | UpsertedReleaseResult) {
   if (result.lastRelease?.tagName) {
-    setOutput("last-version", result.lastRelease.tagName)
+    setOutput("last-version", result.lastRelease.tagName) //todo Version
   }
-  setOutput("next-version", result.version)
+  setOutput("next-version", result.version.toString())
 }

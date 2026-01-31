@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 import type { Context } from "@/context"
 import { isReleaseBranch, performAction } from "@/core"
 import { Octomock } from "./octomock/octomock"
+import {parse} from "@/versioning/version";
 
 describe("isReleaseBranch", () => {
   it("should return true when branch is in releaseBranches", () => {
@@ -109,7 +110,7 @@ describe("performAction", () => {
 
       expect(result.action).toBe("created")
       if (result.action === "created" || result.action === "updated") {
-        expect(result.version).toBe("v0.1.0")
+        expect(result.version).toStrictEqual(parse("v0.1.0"))
         expect(result.pullRequestTitles).toEqual(["feat: add new feature"])
         expect(result.versionIncrement).toBe("minor")
         expect(result.release).toBeDefined()
@@ -159,7 +160,7 @@ describe("performAction", () => {
 
       expect(result.action).toBe("created")
       if (result.action === "created" || result.action === "updated") {
-        expect(result.version).toBe("v1.2.4")
+        expect(result.version.toString()).toBe("1.2.4")
         expect(result.versionIncrement).toBe("patch")
         expect(result.pullRequestTitles).toEqual(["fix: correct bug"])
         expect(result.lastRelease?.tagName).toBe("v1.2.3")
@@ -201,7 +202,7 @@ describe("performAction", () => {
 
       expect(result.action).toBe("created")
       if (result.action === "created" || result.action === "updated") {
-        expect(result.version).toBe("v2.0.0")
+        expect(result.version.toString()).toBe("2.0.0")
         expect(result.versionIncrement).toBe("major")
       }
     })
@@ -235,7 +236,7 @@ describe("performAction", () => {
 
       expect(result.action).toBe("created")
       if (result.action === "created" || result.action === "updated") {
-        expect(result.version).toBe("v1.6.0")
+        expect(result.version.toString()).toBe("1.6.0")
         expect(result.versionIncrement).toBe("minor")
       }
     })
@@ -279,7 +280,7 @@ describe("performAction", () => {
 
       expect(result.action).toBe("updated")
       if (result.action === "created" || result.action === "updated") {
-        expect(result.version).toBe("v0.9.1")
+        expect(result.version.toString()).toBe("0.9.1")
         expect(result.versionIncrement).toBe("patch")
         expect(result.release.id).toBe(10)
       }
@@ -345,7 +346,7 @@ describe("performAction", () => {
 
       expect(result.action).toBe("updated")
       if (result.action === "created" || result.action === "updated") {
-        expect(result.version).toBe("v1.1.0")
+        expect(result.version.toString()).toBe("1.1.0")
         expect(result.pullRequestTitles).toHaveLength(3)
         expect(result.versionIncrement).toBe("minor")
       }
@@ -397,7 +398,7 @@ describe("performAction", () => {
 
       expect(result.action).toBe("updated")
       if (result.action === "created" || result.action === "updated") {
-        expect(result.version).toBe("v1.0.0")
+        expect(result.version.toString()).toBe("1.0.0")
         expect(result.versionIncrement).toBe("major")
       }
 
@@ -440,7 +441,7 @@ describe("performAction", () => {
 
       expect(result.action).toBe("updated")
       if (result.action === "created" || result.action === "updated") {
-        expect(result.version).toBe("v0.1.0")
+        expect(result.version.toString()).toBe("0.1.0")
       }
 
       expect(octomock.generateReleaseNotes).toHaveBeenCalledWith({
@@ -489,7 +490,7 @@ describe("performAction", () => {
 
       // Should bump from v1.0.0 (main branch), not v2.0.0 (develop branch)
       if (result.action === "created" || result.action === "updated") {
-        expect(result.version).toBe("v1.1.0")
+        expect(result.version.toString()).toBe("1.1.0")
       }
     })
 
@@ -556,7 +557,7 @@ describe("performAction", () => {
       const result = await performAction(context, "v1.0.0")
 
       if (result.action === "created" || result.action === "updated") {
-        expect(result.version).toBe("v1.0.0")
+        expect(result.version.toString()).toBe("1.0.0")
       }
     })
 
@@ -629,7 +630,7 @@ describe("performAction", () => {
       // Non-conventional commits result in "none" increment, so version stays the same
       if (result.action === "created" || result.action === "updated") {
         expect(result.versionIncrement).toBe("none")
-        expect(result.version).toBe("v1.0.0")
+        expect(result.version.toString()).toBe("1.0.0")
       }
     })
   })
@@ -686,7 +687,7 @@ describe("performAction on feature branch", () => {
 
       expect(result.action).toBe("version")
       if (result.action === "version") {
-        expect(result.version).toBe("v1.1.0")
+        expect(result.version.toString()).toBe("1.1.0")
         expect(result.versionIncrement).toBe("minor")
         expect(result.pullRequestTitles).toEqual(["feat: add new feature"])
         expect(result.lastRelease?.tagName).toBe("v1.0.0")
@@ -723,7 +724,7 @@ describe("performAction on feature branch", () => {
 
       // Should bump from v1.0.0 (main branch), not v2.0.0 (develop branch)
       if (result.action === "version") {
-        expect(result.version).toBe("v1.0.1")
+        expect(result.version.toString()).toBe("1.0.1")
         expect(result.lastRelease?.tagName).toBe("v1.0.0")
       }
     })
@@ -741,7 +742,7 @@ describe("performAction on feature branch", () => {
       const result = await performAction(context, "v0.1.0")
 
       if (result.action === "version") {
-        expect(result.version).toBe("v0.1.0")
+        expect(result.version.toString()).toBe("0.1.0")
         expect(result.lastRelease).toBeNull()
       }
     })
@@ -778,7 +779,7 @@ describe("performAction on feature branch", () => {
       // Should be minor because of the merged feat PR
       if (result.action === "version") {
         expect(result.versionIncrement).toBe("minor")
-        expect(result.version).toBe("v1.1.0")
+        expect(result.version.toString()).toBe("1.1.0")
       }
     })
   })

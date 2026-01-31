@@ -4,7 +4,7 @@ import { createDraftRelease, type Release, updateRelease } from "@/data/release"
 import { generateReleaseNotes } from "@/data/release_notes"
 import { fetchReleases } from "@/data/releases"
 import { inferImpactFromPRs } from "@/versioning/version-bump-inference"
-import { bumpTag, type VersionIncrement } from "@/versioning/versions"
+import {parse, Version, type VersionIncrement} from "@/versioning/version"
 
 export type NoUpdateResult = {
   action: "none"
@@ -16,7 +16,7 @@ export type VersionInferenceResult = {
   lastRelease: Release | null
   pullRequestTitles: string[]
   versionIncrement: VersionIncrement
-  version: string
+  version: Version
 }
 export type UpsertedReleaseResult = {
   action: "created" | "updated"
@@ -24,7 +24,7 @@ export type UpsertedReleaseResult = {
   lastRelease: Release | null
   pullRequestTitles: string[]
   versionIncrement: VersionIncrement
-  version: string
+  version: Version
   release: Release
 }
 export type UpsertResult = NoUpdateResult | VersionInferenceResult | UpsertedReleaseResult
@@ -96,7 +96,7 @@ async function upsertDraftReleaseForReleaseBranch(
     action: action,
     lastDraft: lastDraft,
     lastRelease: lastRelease,
-    pullRequestTitles: pullRequests.map((pr) => pr.title),
+    pullRequestTitles: pullRequests.map(pr => pr.title),
     versionIncrement: versionIncrement,
     version: nextVersion,
     release: release
@@ -150,32 +150,37 @@ function calculateNextVersion(
   lastRelease: Release | null,
   increment: VersionIncrement,
   defaultTag: string
-): string {
-  return bumpTag(lastRelease?.tagName, increment, defaultTag)
+): Version {
+  if (lastRelease?.tagName) {
+    const tagName = lastRelease?.tagName
+    return parse(tagName).bump(increment)
+  } else {
+    return parse(defaultTag)
+  }
 }
 
 async function performUpsert(
   context: Context,
-  nextVersion: string,
+  nextVersion: Version,
   existingDraft: Release | null,
   lastRelease: Release | null
 ): Promise<{ release: Release; action: "created" | "updated" }> {
   if (existingDraft) {
     const body = await generateReleaseNotes(
       context,
-      nextVersion,
+      nextVersion.tag,
       context.branch,
       lastRelease?.tagName ?? null
     )
     const release = await updateRelease(context, {
       ...existingDraft,
-      name: nextVersion,
-      tagName: nextVersion,
+      name: nextVersion.tag,
+      tagName: nextVersion.tag,
       body: body
     })
     return { release: release, action: "updated" }
   } else {
-    const release = await createDraftRelease(context, nextVersion, context.branch, nextVersion)
+    const release = await createDraftRelease(context, nextVersion.tag, context.branch, nextVersion.tag)
     return { release: release, action: "created" }
   }
 }
