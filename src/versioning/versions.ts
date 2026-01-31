@@ -21,6 +21,7 @@ export function bumpTag(
   defaultTag: string
 ): string {
   if (!versionTag) {
+    // Use and validate the default tag instead
     return checkedVersionTag(defaultTag)
   }
   const bare = checkedVersionTag(versionTag).slice(1)

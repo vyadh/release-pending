@@ -16,7 +16,8 @@ describe("Octomock", () => {
       octokit: octomock.octokit,
       owner: "test-owner",
       repo: "test-repo",
-      branch: "main"
+      branch: "main",
+      releaseBranches: ["main"]
     }
   })
 

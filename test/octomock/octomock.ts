@@ -23,6 +23,7 @@ export interface GitHubPullRequest {
   title: string
   number: number
   baseRefName: string
+  headRefName: string
   state: string
   mergedAt: string | null
   mergeCommit: {
@@ -42,6 +43,11 @@ export interface ErrorConfig {
  * Parameters expected for the simplified GraphQL pullRequests query handled by Octomock
  */
 interface GraphQLPullRequestsParams {
+  owner: string
+  repo: string
+  baseRefName?: string | null
+  headRefName?: string | null
+  state: string
   perPage?: number
   cursor?: string | null
 }
@@ -308,6 +314,7 @@ export class Octomock {
       title: `PR ${this.nextPullRequestNumber}`,
       number: this.nextPullRequestNumber++,
       baseRefName: "main",
+      headRefName: `feature-${this.nextPullRequestNumber - 1}`,
       state: state,
       mergedAt: state === "MERGED" ? new Date().toISOString() : null,
       mergeCommit: {
@@ -465,6 +472,18 @@ export class Octomock {
     const perPage = params.perPage ?? 30
     const cursor = params.cursor
 
+    // Filter pull requests by the query parameters
+    let filteredPRs = this.pullRequests
+    if (params.state) {
+      filteredPRs = filteredPRs.filter((pr) => pr.state === params.state)
+    }
+    if (params.baseRefName) {
+      filteredPRs = filteredPRs.filter((pr) => pr.baseRefName === params.baseRefName)
+    }
+    if (params.headRefName) {
+      filteredPRs = filteredPRs.filter((pr) => pr.headRefName === params.headRefName)
+    }
+
     // Find start index from cursor
     let startIndex = 0
     if (cursor) {
@@ -475,8 +494,8 @@ export class Octomock {
     }
 
     const endIndex = startIndex + perPage
-    const pageData = this.pullRequests.slice(startIndex, endIndex)
-    const hasNextPage = endIndex < this.pullRequests.length
+    const pageData = filteredPRs.slice(startIndex, endIndex)
+    const hasNextPage = endIndex < filteredPRs.length
     const endCursor = hasNextPage ? `cursor_${endIndex}` : null
 
     return Promise.resolve({

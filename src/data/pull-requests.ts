@@ -50,9 +50,13 @@ export class PullRequests implements AsyncIterable<PullRequest> {
     }
   }
 
-  // todo not currently using limit
+  // todo not currently supplying limit
   async collect(limit?: number): Promise<PullRequest[]> {
     return collectAsync(this, limit)
+  }
+
+  async first(): Promise<PullRequest | null> {
+    return collectFirst(this)
   }
 }
 
@@ -63,7 +67,7 @@ query(
   $repo: String!
   $baseRefName: String
   $headRefName: String
-  $states: [PullRequestState!]!
+  $state: PullRequestState!
   $perPage: Int!
   $cursor: String
 ) {
@@ -71,7 +75,7 @@ query(
     pullRequests(
       baseRefName: $baseRefName
       headRefName: $headRefName
-      states: $states
+      states: [$state]
       orderBy: { field: UPDATED_AT, direction: DESC }
       first: $perPage
       after: $cursor
@@ -96,8 +100,8 @@ query(
  * Fetch GitHub pull requests using GraphQL API with lazy pagination.
  * Only fetches more pages when needed.
  *
- * For incoming PRs (merged into a branch): fetches only MERGED PRs
- * For outgoing PRs (opened from a branch): fetches both OPEN and MERGED PRs
+ * For incoming PRs (merged into a branch): fetches MERGED PRs
+ * For outgoing PRs (opened from a branch): fetches OPEN PRs
  */
 export function fetchPullRequests(context: Context, params: FetchPullRequestsParams): PullRequests {
   if (params.type === "incoming") {
@@ -106,22 +110,24 @@ export function fetchPullRequests(context: Context, params: FetchPullRequestsPar
         context,
         params.baseRefName,
         null,
-        ["MERGED"],
+        "MERGED",
         params.mergedSince,
         params.perPage
       )
     )
+  } else {
+    // outgoing
+    return new PullRequests(
+      createPullRequestsGenerator(context, null, params.headRefName, "OPEN", null, params.perPage)
+    )
   }
-  return new PullRequests(
-    createPullRequestsGenerator(context, null, params.headRefName, ["OPEN", "MERGED"], null, params.perPage)
-  )
 }
 
 async function* createPullRequestsGenerator(
   context: Context,
   baseRefName: string | null,
   headRefName: string | null,
-  states: string[],
+  state: string,
   mergedSince: Date | null,
   perPage?: number
 ): AsyncGenerator<PullRequest, void, undefined> {
@@ -136,7 +142,7 @@ async function* createPullRequestsGenerator(
         repo: context.repo,
         baseRefName: baseRefName,
         headRefName: headRefName,
-        states: states,
+        state: state,
         perPage: perPage ?? DEFAULT_PER_PAGE,
         cursor: cursor
       }
@@ -184,7 +190,7 @@ interface PullRequestNode {
   number: number
   baseRefName: string
   state: string
-  mergedAt: string
+  mergedAt: string | null
 }
 
 /**
@@ -196,7 +202,7 @@ function mapPullRequest(apiPR: PullRequestNode): PullRequest {
     number: apiPR.number,
     baseRefName: apiPR.baseRefName,
     state: apiPR.state,
-    mergedAt: apiPR.state === "MERGED" ? new Date(apiPR.mergedAt) : null
+    mergedAt: apiPR.state === "MERGED" && apiPR.mergedAt ? new Date(apiPR.mergedAt) : null
   }
 }
 
@@ -210,4 +216,11 @@ async function collectAsync<T>(source: AsyncIterable<T>, limit?: number): Promis
     }
   }
   return result
+}
+async function collectFirst<T>(source: AsyncIterable<T>): Promise<T | null> {
+  // noinspection LoopStatementThatDoesntLoopJS
+  for await (const item of source) {
+    return item
+  }
+  return null
 }

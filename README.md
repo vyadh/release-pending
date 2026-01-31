@@ -10,10 +10,11 @@ A GitHub Action for release and version management. Maintains GitHub releases an
 
 ## Features
 
-- Maintains a GitHub draft release of the changes since the last release.
+- Maintains a GitHub draft release of the pull requests since the last release.
 - Allows curation of a draft for any branch to be released by utilising GitHub's concept of a `target_commitish`, linking branch and draft release.
 - Uses GitHub's own release notes generator allowing use of [standard release note templates](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes).
-- Infers version numbers from pull request titles in conventional commits style.
+- Infers version from pull request titles in conventional commits style.
+- Supports versioning feature branches when there is an outgoing pull request to a release branch.
 
 
 ## Design Goals

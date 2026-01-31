@@ -6,6 +6,7 @@ export interface Context {
   owner: string
   repo: string
   branch: string
+  releaseBranches: string[]
 }
 
 /**
@@ -17,15 +18,23 @@ export interface Context {
  * - GITHUB_REF: Git reference (e.g., "refs/heads/main")
  * - GITHUB_REF_NAME: Fallback for branch/tag name
  *
+ * @param releaseBranches - Optional list of release branch names. If empty, the current branch is used.
  * @throws {Error} If required environment variables are missing or invalid
  */
-export function createContext(): Context {
+export function createContext(releaseBranches: string[] = []): Context {
   const token = getGitHubToken()
   const octokit = createOctokit({ auth: token })
   const { owner, repo } = getRepositoryInfo()
   const branch = getBranch()
+  const effectiveReleaseBranches = releaseBranches.length > 0 ? releaseBranches : [branch]
 
-  return { octokit: octokit, owner: owner, repo: repo, branch: branch }
+  return {
+    octokit: octokit,
+    owner: owner,
+    repo: repo,
+    branch: branch,
+    releaseBranches: effectiveReleaseBranches
+  }
 }
 
 function getGitHubToken(): string {

@@ -1,14 +1,14 @@
 import type { Octokit } from "octokit"
 import { info } from "@/actions-core/core"
 import type { Context } from "@/context"
-import { upsertDraftRelease } from "@/core"
-import {fetchPullRequests, FetchPullRequestsParams} from "@/data/pull-requests"
+import { performAction } from "@/core"
+import { type FetchPullRequestsParams, fetchPullRequests } from "@/data/pull-requests"
 import { fetchReleases } from "@/data/releases"
 import { createOctokit } from "@/octokit-factory"
 
-await run()
+await entryPoint()
 
-export async function run() {
+export async function entryPoint() {
   const args = process.argv.slice(2)
   if (args.length < 1) {
     console.error("Usage: node dist/index.js <command> [<args>]")
@@ -25,8 +25,8 @@ export async function run() {
 
   const [command] = args
   switch (command) {
-    case "simulate":
-      await simulate(octokit, args.slice(1))
+    case "run":
+      await run(octokit, args.slice(1))
       break
     case "releases":
       await showReleases(octokit, args.slice(1))
@@ -40,20 +40,33 @@ export async function run() {
   }
 }
 
-async function simulate(octokit: Octokit, args: string[]) {
+async function run(octokit: Octokit, args: string[]) {
   if (args.length < 3) {
-    console.error("Usage: node dist/index.js simulate <owner> <repo> <branch> [defaultTag]")
+    console.error("Usage: node dist/index.js run <owner> <repo> <branch> [releaseBranch] [defaultTag]")
     process.exit(1)
   }
-  const [owner, repo, branch, defaultTag = "v0.1.0"] = args
+  const [owner, repo, branch, releaseBranchOption, defaultTag = "v0.1.0"] = args
+  const releaseBranch = releaseBranchOption ?? branch
 
-  console.log(`Simulating draft release for ${owner}/${repo}@${branch}...`)
+  console.log(`Run action for ${owner}/${repo}@${branch}...`)
 
-  const context: Context = { octokit: octokit, owner: owner, repo: repo, branch: branch }
-  const result = await upsertDraftRelease(context, defaultTag)
+  const context: Context = {
+    octokit: octokit,
+    owner: owner,
+    repo: repo,
+    branch: branch,
+    releaseBranches: [releaseBranch]
+  }
+  const result = await performAction(context, defaultTag)
 
   if (result.action === "none") {
     info("\nNo outstanding PRs found, so a draft release was neither created nor updated")
+  } else if (result.action === "version") {
+    info(`Last Release: ${result.lastRelease?.name ?? "(none)"}`)
+    info(`Pull Requests: \n${result.pullRequestTitles.map((pr) => `  ${pr}`).join("\n")}`)
+    info(`Version Increment: ${result.versionIncrement}`)
+    info(`Next Version: ${result.version}`)
+    info(`Branch Type: feature (no draft release created/updated)`)
   } else {
     info(`Last Release: ${result.lastRelease?.name ?? "(none)"}`)
     info(`Current Draft: ${result.lastDraft?.name ?? "(none)"}`)
@@ -72,7 +85,13 @@ async function showReleases(octokit: Octokit, args: string[]) {
   const [owner, repo] = args
 
   try {
-    const context: Context = { octokit: octokit, owner: owner, repo: repo, branch: "placeholder" }
+    const context: Context = {
+      octokit: octokit,
+      owner: owner,
+      repo: repo,
+      branch: "placeholder",
+      releaseBranches: []
+    }
     const releases = fetchReleases(context)
 
     console.log(`Finding latest draft release...`)
@@ -88,29 +107,41 @@ async function showReleases(octokit: Octokit, args: string[]) {
 
 async function showPullRequests(octokit: Octokit, args: string[]) {
   if (args.length < 4) {
-    console.error("Usage: node dist/index.js pulls <incoming|outgoing> <owner> <repo> <branch> [mergedSince]")
+    console.error(
+      "Usage: node dist/index.js pulls <incoming|outgoing> <owner> <repo> <branch> [merged-since]"
+    )
     process.exit(1)
   }
-  const [direction, owner, repo, branch, mergedSinceString] = args
-  const mergedSince = mergedSinceString ? new Date(mergedSinceString) : null
+  const [direction, owner, repo, branch, mergedSinceOption] = args
+  const mergedSince = mergedSinceOption ? new Date(mergedSinceOption) : null
 
   try {
-    console.log(`Fetching pull requests for ${owner}/${repo}@${branch} after ${mergedSince?.toISOString()}...`)
-    const context: Context = { octokit: octokit, owner: owner, repo: repo, branch: branch }
-
-    const operation: FetchPullRequestsParams = direction === "incoming" ? {
-      type: "incoming",
-      baseRefName: branch,
-      mergedSince: mergedSince
-    } : {
-      type: "outgoing",
-      headRefName: branch
+    console.log(
+      `Fetching pull requests for ${owner}/${repo}@${branch} after ${mergedSince?.toISOString()}...`
+    )
+    const context: Context = {
+      octokit: octokit,
+      owner: owner,
+      repo: repo,
+      branch: branch,
+      releaseBranches: []
     }
+
+    const operation: FetchPullRequestsParams =
+      direction === "incoming"
+        ? {
+            type: "incoming",
+            baseRefName: branch,
+            mergedSince: mergedSince
+          }
+        : {
+            type: "outgoing",
+            headRefName: branch
+          }
 
     for await (const pr of fetchPullRequests(context, operation)) {
       console.log(pr)
     }
-
   } catch (error) {
     console.error("Error fetching pull requests:", error)
     process.exit(1)

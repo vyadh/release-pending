@@ -15,7 +15,8 @@ describe("fetchReleases", () => {
       octokit: octomock.octokit,
       owner: "test-owner",
       repo: "test-repo",
-      branch: "main"
+      branch: "main",
+      releaseBranches: ["main"]
     }
   })
 
@@ -127,7 +128,8 @@ describe("find", () => {
       octokit: octomock.octokit,
       owner: "test-owner",
       repo: "test-repo",
-      branch: "main"
+      branch: "main",
+      releaseBranches: ["main"]
     }
   })
 
@@ -169,7 +171,8 @@ describe("findLast", () => {
       octokit: octomock.octokit,
       owner: "test-owner",
       repo: "test-repo",
-      branch: "main"
+      branch: "main",
+      releaseBranches: ["main"]
     }
   })
 
@@ -308,7 +311,8 @@ describe("findLastDraft", () => {
       octokit: octomock.octokit,
       owner: "test-owner",
       repo: "test-repo",
-      branch: "main"
+      branch: "main",
+      releaseBranches: ["main"]
     }
   })
 

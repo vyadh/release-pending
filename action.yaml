@@ -11,6 +11,9 @@ inputs:
     description: What tag to use for the release if no prior release is found.
     required: true
     default: v0.0.0
+  release-branches:
+    description: List of branch names that are release branches (one per line). If not set, the current branch is used.
+    required: false
 
 outputs:
   action:
