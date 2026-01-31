@@ -30,6 +30,15 @@ export interface GitHubPullRequest {
 }
 
 /**
+ * GitHub Commit structure matching GitHub GraphQL API
+ */
+export interface GitHubCommit {
+  oid: string
+  committedDate: string
+  message: string
+}
+
+/**
  * Error configuration for injection
  */
 export interface ErrorConfig {
@@ -332,6 +341,43 @@ export class Octomock {
   }
 
   /**
+   * Add a commit to the internal state
+   */
+  stageCommit(overrides: Partial<GitHubCommit> = {}): GitHubCommit {
+    const commit: GitHubCommit = {
+      oid: `commit_${this.nextCommitIndex}`,
+      committedDate: new Date().toISOString(),
+      message: `Commit ${this.nextCommitIndex}`,
+      ...overrides
+    }
+    this.nextCommitIndex++
+
+    this.commits.push(commit)
+    return commit
+  }
+
+  /**
+   * Add multiple commits to the internal state
+   * @param count Number of commits to add
+   * @param fn Optional function to customize each commit based on its index (0-based)
+   */
+  stageCommits(count: number, fn?: (index: number) => Partial<GitHubCommit>): GitHubCommit[] {
+    const commits: GitHubCommit[] = []
+    for (let i = 0; i < count; i++) {
+      const overrides = fn ? fn(i) : {}
+      commits.push(this.stageCommit(overrides))
+    }
+    return commits
+  }
+
+  /**
+   * Inject a branch not found response for commit history queries
+   */
+  injectBranchNotFound(): void {
+    this.branchNotFound = true
+  }
+
+  /**
    * Inject an error for the next listReleases call
    */
   injectListReleasesError(error: ErrorConfig): void {
@@ -448,11 +494,16 @@ export class Octomock {
 
   private handleGraphQLQuery(
     query: string,
-    params: GraphQLPullRequestsParams
-  ): Promise<GraphQLPullRequestsResponse> {
+    params: GraphQLPullRequestsParams | GraphQLCommitHistoryParams
+  ): Promise<GraphQLPullRequestsResponse | GraphQLCommitHistoryResponse> {
     // Handle pull requests query
     if (query.includes("pullRequests")) {
-      return this.handlePullRequestsQuery(params)
+      return this.handlePullRequestsQuery(params as GraphQLPullRequestsParams)
+    }
+
+    // Handle commit history query
+    if (query.includes("history")) {
+      return this.handleCommitHistoryQuery(params as GraphQLCommitHistoryParams)
     }
 
     return Promise.reject(new Error(`Unsupported GraphQL query: ${query}`))
@@ -483,6 +534,50 @@ export class Octomock {
           pageInfo: {
             hasNextPage,
             endCursor
+          }
+        }
+      }
+    })
+  }
+
+  private handleCommitHistoryQuery(params: GraphQLCommitHistoryParams): Promise<GraphQLCommitHistoryResponse> {
+    // Handle branch not found
+    if (this.branchNotFound) {
+      return Promise.resolve({
+        repository: {
+          ref: null
+        }
+      })
+    }
+
+    const perPage = params.perPage ?? 30
+    const cursor = params.cursor
+
+    // Find start index from cursor
+    let startIndex = 0
+    if (cursor) {
+      const cursorMatch = cursor.match(/cursor_(\d+)/)
+      if (cursorMatch) {
+        startIndex = parseInt(cursorMatch[1], 10)
+      }
+    }
+
+    const endIndex = startIndex + perPage
+    const pageData = this.commits.slice(startIndex, endIndex)
+    const hasNextPage = endIndex < this.commits.length
+    const endCursor = hasNextPage ? `cursor_${endIndex}` : null
+
+    return Promise.resolve({
+      repository: {
+        ref: {
+          target: {
+            history: {
+              nodes: pageData,
+              pageInfo: {
+                hasNextPage,
+                endCursor
+              }
+            }
           }
         }
       }

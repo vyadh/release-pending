@@ -2,6 +2,7 @@ import type { Octokit } from "octokit"
 import { info } from "@/actions-core/core"
 import type { Context } from "@/context"
 import { upsertDraftRelease } from "@/core"
+import { fetchCommits } from "@/data/commits"
 import { fetchPullRequests } from "@/data/pull-requests"
 import { fetchReleases } from "@/data/releases"
 import { createOctokit } from "@/octokit-factory"
@@ -33,6 +34,9 @@ export async function run() {
       break
     case "pulls":
       await showPullRequests(octokit, args.slice(1))
+      break
+    case "commits":
+      await showCommits(octokit, args.slice(1))
       break
     default:
       console.error(`Unknown command: ${command}`)
@@ -102,6 +106,39 @@ async function showPullRequests(octokit: Octokit, args: string[]) {
     }
   } catch (error) {
     console.error("Error fetching pull requests:", error)
+    process.exit(1)
+  }
+}
+
+async function showCommits(octokit: Octokit, args: string[]) {
+  if (args.length < 3) {
+    console.error("Usage: node dist/index.js commits <owner> <repo> <branch> [limit]")
+    process.exit(1)
+  }
+  const [owner, repo, branch, limitString] = args
+  const limit = limitString ? parseInt(limitString, 10) : undefined
+
+  try {
+    console.log(`Fetching commits for ${owner}/${repo}@${branch}...`)
+    const context: Context = { octokit, owner, repo, branch }
+    const commits = fetchCommits(context)
+
+    let count = 0
+    for await (const commit of commits) {
+      console.log({
+        oid: commit.oid,
+        committedDate: commit.committedDate.toISOString(),
+        message: commit.message.split("\n")[0] // First line only for display
+      })
+      count++
+      if (limit !== undefined && count >= limit) {
+        break
+      }
+    }
+    console.log(`\nTotal commits fetched: ${count}`)
+    console.log(`Cached: ${commits.cachedCount}, Exhausted: ${commits.isExhausted}`)
+  } catch (error) {
+    console.error("Error fetching commits:", error)
     process.exit(1)
   }
 }
