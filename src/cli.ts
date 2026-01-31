@@ -4,6 +4,7 @@ import type { Context } from "@/context"
 import { upsertDraftRelease } from "@/core"
 import { fetchPullRequests } from "@/data/pull-requests"
 import { fetchReleases } from "@/data/releases"
+import { fetchTags } from "@/data/tags"
 import { createOctokit } from "@/octokit-factory"
 
 await run()
@@ -33,6 +34,9 @@ export async function run() {
       break
     case "pulls":
       await showPullRequests(octokit, args.slice(1))
+      break
+    case "tags":
+      await showTags(octokit, args.slice(1))
       break
     default:
       console.error(`Unknown command: ${command}`)
@@ -102,6 +106,35 @@ async function showPullRequests(octokit: Octokit, args: string[]) {
     }
   } catch (error) {
     console.error("Error fetching pull requests:", error)
+    process.exit(1)
+  }
+}
+
+async function showTags(octokit: Octokit, args: string[]) {
+  if (args.length < 2) {
+    console.error("Usage: node dist/index.js tags <owner> <repo>")
+    process.exit(1)
+  }
+  const [owner, repo] = args
+
+  try {
+    const context: Context = { octokit, owner, repo, branch: "placeholder" }
+    const tags = fetchTags(context)
+
+    console.log(`\nFinding first semver tag for ${owner}/${repo}...`)
+    const firstSemverTag = await tags.findFirstSemverTag()
+    if (firstSemverTag) {
+      console.log(`First semver tag: ${firstSemverTag.name} (${firstSemverTag.commitOid})`)
+    } else {
+      console.log("No semver tag found")
+    }
+
+    console.log(`\nAll tags:`)
+    for await (const tag of tags) {
+      console.log(`  ${tag.name} (${tag.commitOid})`)
+    }
+  } catch (error) {
+    console.error("Error fetching tags:", error)
     process.exit(1)
   }
 }

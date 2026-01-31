@@ -30,6 +30,19 @@ export interface GitHubPullRequest {
 }
 
 /**
+ * GitHub Tag structure matching GitHub GraphQL API
+ */
+export interface GitHubTag {
+  name: string
+  target: {
+    oid?: string
+    target?: {
+      oid: string
+    }
+  }
+}
+
+/**
  * Error configuration for injection
  */
 export interface ErrorConfig {
@@ -46,12 +59,35 @@ interface GraphQLPullRequestsParams {
 }
 
 /**
+ * Parameters expected for the simplified GraphQL tags query handled by Octomock
+ */
+interface GraphQLTagsParams {
+  perPage?: number
+  cursor?: string | null
+}
+
+/**
  * Shape of the simplified GraphQL response returned by Octomock for pullRequests
  */
 interface GraphQLPullRequestsResponse {
   repository: {
     pullRequests: {
       nodes: GitHubPullRequest[]
+      pageInfo: {
+        hasNextPage: boolean
+        endCursor: string | null
+      }
+    }
+  }
+}
+
+/**
+ * Shape of the simplified GraphQL response returned by Octomock for tags
+ */
+interface GraphQLTagsResponse {
+  repository: {
+    refs: {
+      nodes: GitHubTag[]
       pageInfo: {
         hasNextPage: boolean
         endCursor: string | null
@@ -77,6 +113,7 @@ interface ReleasesPage {
 export class Octomock {
   private releases: GitHubRelease[] = []
   private pullRequests: GitHubPullRequest[] = []
+  private tags: GitHubTag[] = []
   private nextReleaseId = 1
   private nextPullRequestNumber = 1
 
@@ -332,6 +369,35 @@ export class Octomock {
   }
 
   /**
+   * Add a tag to the internal state
+   */
+  stageTag(overrides: Partial<GitHubTag> = {}): GitHubTag {
+    const tagCount = this.tags.length
+    const tag: GitHubTag = {
+      name: `v1.0.${tagCount}`,
+      target: { oid: `commit_${tagCount}` },
+      ...overrides
+    }
+
+    this.tags.push(tag)
+    return tag
+  }
+
+  /**
+   * Add multiple tags to the internal state
+   * @param count Number of tags to add
+   * @param fn Optional function to customize each tag based on its index (0-based)
+   */
+  stageTags(count: number, fn?: (index: number) => Partial<GitHubTag>): GitHubTag[] {
+    const tags: GitHubTag[] = []
+    for (let i = 0; i < count; i++) {
+      const overrides = fn ? fn(i) : {}
+      tags.push(this.stageTag(overrides))
+    }
+    return tags
+  }
+
+  /**
    * Inject an error for the next listReleases call
    */
   injectListReleasesError(error: ErrorConfig): void {
@@ -448,11 +514,16 @@ export class Octomock {
 
   private handleGraphQLQuery(
     query: string,
-    params: GraphQLPullRequestsParams
-  ): Promise<GraphQLPullRequestsResponse> {
+    params: GraphQLPullRequestsParams | GraphQLTagsParams
+  ): Promise<GraphQLPullRequestsResponse | GraphQLTagsResponse> {
     // Handle pull requests query
     if (query.includes("pullRequests")) {
       return this.handlePullRequestsQuery(params)
+    }
+
+    // Handle tags query (refs with refPrefix: "refs/tags/")
+    if (query.includes("refs")) {
+      return this.handleTagsQuery(params)
     }
 
     return Promise.reject(new Error(`Unsupported GraphQL query: ${query}`))
@@ -479,6 +550,37 @@ export class Octomock {
     return Promise.resolve({
       repository: {
         pullRequests: {
+          nodes: pageData,
+          pageInfo: {
+            hasNextPage,
+            endCursor
+          }
+        }
+      }
+    })
+  }
+
+  private handleTagsQuery(params: GraphQLTagsParams): Promise<GraphQLTagsResponse> {
+    const perPage = params.perPage ?? 30
+    const cursor = params.cursor
+
+    // Find start index from cursor
+    let startIndex = 0
+    if (cursor) {
+      const cursorMatch = cursor.match(/cursor_(\d+)/)
+      if (cursorMatch) {
+        startIndex = parseInt(cursorMatch[1], 10)
+      }
+    }
+
+    const endIndex = startIndex + perPage
+    const pageData = this.tags.slice(startIndex, endIndex)
+    const hasNextPage = endIndex < this.tags.length
+    const endCursor = hasNextPage ? `cursor_${endIndex}` : null
+
+    return Promise.resolve({
+      repository: {
+        refs: {
           nodes: pageData,
           pageInfo: {
             hasNextPage,
