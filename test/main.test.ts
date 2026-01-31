@@ -19,6 +19,7 @@ vi.mock("@/core", () => ({
 import * as contextModule from "@/context"
 import * as coreModule from "@/core"
 import { main } from "@/main"
+import {parse} from "@/versioning/version";
 
 describe("main", () => {
   beforeEach(() => {
@@ -38,6 +39,7 @@ describe("main", () => {
         targetCommitish: "main",
         publishedAt: null
       },
+      lastVersion: parse("1.0.0"),
       release: {
         id: 123,
         name: "v1.1.0",
@@ -48,7 +50,7 @@ describe("main", () => {
         targetCommitish: "main",
         publishedAt: null
       },
-      version: "v1.1.0",
+      version: parse("1.1.0"),
       pullRequestTitles: [
         "feat: feature 1",
         "feat: feature 2",
@@ -80,8 +82,8 @@ describe("main", () => {
       "v0.1.0"
     )
     expect(setOutput).toHaveBeenCalledWith("action", "created")
-    expect(setOutput).toHaveBeenCalledWith("last-version", "v1.0.0")
-    expect(setOutput).toHaveBeenCalledWith("next-version", "v1.1.0")
+    expect(setOutput).toHaveBeenCalledWith("last-version", "1.0.0")
+    expect(setOutput).toHaveBeenCalledWith("next-version", "1.1.0")
     expect(setOutput).toHaveBeenCalledWith("release-id", 123)
   })
 
@@ -119,10 +121,10 @@ describe("main", () => {
     expect(info).toHaveBeenCalledWith("Last Release: v1.0.0")
     expect(info).toHaveBeenCalledWith("Current Draft: (none)")
     expect(info).toHaveBeenCalledWith("Version Increment: minor")
-    expect(info).toHaveBeenCalledWith("Next Version: v1.1.0")
+    expect(info).toHaveBeenCalledWith("Next Version: 1.1.0")
     expect(info).toHaveBeenCalledWith(expect.stringContaining("Updated Draft: v1.1.0"))
-    expect(core.setOutput).toHaveBeenCalledWith("last-version", "v1.0.0")
-    expect(core.setOutput).toHaveBeenCalledWith("next-version", "v1.1.0")
+    expect(core.setOutput).toHaveBeenCalledWith("last-version", "1.0.0")
+    expect(core.setOutput).toHaveBeenCalledWith("next-version", "1.1.0")
     expect(core.setOutput).toHaveBeenCalledWith("release-id", 123)
   })
 
@@ -130,7 +132,8 @@ describe("main", () => {
     vi.mocked(coreModule.performAction).mockResolvedValueOnce({
       action: "none",
       lastDraft: null,
-      lastRelease: null
+      lastRelease: null,
+      lastVersion: null
     })
     vi.spyOn(core, "getInput").mockReturnValue("v0.1.0")
     vi.spyOn(core, "info").mockImplementation(() => {})
@@ -147,7 +150,8 @@ describe("main", () => {
     vi.mocked(coreModule.performAction).mockResolvedValue({
       action: "none",
       lastDraft: null,
-      lastRelease: null
+      lastRelease: null,
+      lastVersion: null
     })
     vi.spyOn(core, "getInput").mockReturnValue("v0.1.0")
     const info = vi.spyOn(core, "info").mockImplementation(() => {})
@@ -174,9 +178,10 @@ describe("main", () => {
         targetCommitish: "main",
         publishedAt: null
       },
+      lastVersion: parse("v1.0.0"),
       pullRequestTitles: ["feat: new feature"],
       versionIncrement: "minor",
-      version: "v1.1.0"
+      version: parse("v1.1.0")
     })
     vi.spyOn(core, "getInput").mockReturnValue("v0.1.0")
     vi.spyOn(core, "getMultilineInput").mockReturnValue(["main"])
@@ -188,12 +193,13 @@ describe("main", () => {
     expect(info).toHaveBeenCalledWith("\nFeature branch: Version inference only")
     expect(info).toHaveBeenCalledWith("Action Taken: version")
     expect(info).toHaveBeenCalledWith("Last Release: v1.0.0")
+    expect(info).toHaveBeenCalledWith("Last Version: 1.0.0")
     expect(info).toHaveBeenCalledWith("Version Increment: minor")
-    expect(info).toHaveBeenCalledWith("Next Version: v1.1.0")
+    expect(info).toHaveBeenCalledWith("Next Version: 1.1.0")
 
     expect(setOutput).toHaveBeenCalledWith("action", "version")
-    expect(setOutput).toHaveBeenCalledWith("last-version", "v1.0.0")
-    expect(setOutput).toHaveBeenCalledWith("next-version", "v1.1.0")
+    expect(setOutput).toHaveBeenCalledWith("last-version", "1.0.0")
+    expect(setOutput).toHaveBeenCalledWith("next-version", "1.1.0")
     expect(setOutput).not.toHaveBeenCalledWith("release-id", expect.anything())
   })
 
@@ -201,9 +207,10 @@ describe("main", () => {
     vi.mocked(coreModule.performAction).mockResolvedValue({
       action: "version",
       lastRelease: null,
+      lastVersion: null,
       pullRequestTitles: ["feat: new feature"],
       versionIncrement: "minor",
-      version: "v0.1.0"
+      version: parse("v0.1.0")
     })
     vi.spyOn(core, "getInput").mockReturnValue("v0.1.0")
     vi.spyOn(core, "getMultilineInput").mockReturnValue(["main"])
@@ -213,7 +220,7 @@ describe("main", () => {
     await main()
 
     expect(setOutput).toHaveBeenCalledWith("action", "version")
-    expect(setOutput).toHaveBeenCalledWith("next-version", "v0.1.0")
+    expect(setOutput).toHaveBeenCalledWith("next-version", "0.1.0")
     expect(setOutput).not.toHaveBeenCalledWith("release-id", expect.anything())
     expect(setOutput).not.toHaveBeenCalledWith("last-version", expect.anything())
   })

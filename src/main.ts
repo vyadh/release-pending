@@ -45,13 +45,14 @@ async function run() {
 function logResults(result: VersionInferenceResult | UpsertedReleaseResult) {
   info(`Last Release: ${result.lastRelease?.name ?? "(none)"}`)
   info(`Pull Requests: \n${result.pullRequestTitles.map((pr) => `  ${pr}`).join("\n")}`)
+  info(`Last Version: ${result.lastVersion?.toString() ?? "(none)"}`)
   info(`Version Increment: ${result.versionIncrement}`)
   info(`Next Version: ${result.version}`)
 }
 
 function outputVersions(result: VersionInferenceResult | UpsertedReleaseResult) {
-  if (result.lastRelease?.tagName) {
-    setOutput("last-version", result.lastRelease.tagName) //todo Version
+  if (result.lastVersion) {
+    setOutput("last-version", result.lastVersion.toString())
   }
   setOutput("next-version", result.version.toString())
 }

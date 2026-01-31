@@ -63,7 +63,8 @@ describe("performAction", () => {
       expect(result).toEqual({
         action: "none",
         lastDraft: null,
-        lastRelease: null
+        lastRelease: null,
+        lastVersion: null
       })
       expect(octomock.createRelease).not.toHaveBeenCalled()
       expect(octomock.updateRelease).not.toHaveBeenCalled()
@@ -658,7 +659,8 @@ describe("performAction on feature branch", () => {
       expect(result).toEqual({
         action: "none",
         lastDraft: null,
-        lastRelease: null
+        lastRelease: null,
+        lastVersion: null
       })
       expect(octomock.createRelease).not.toHaveBeenCalled()
       expect(octomock.updateRelease).not.toHaveBeenCalled()

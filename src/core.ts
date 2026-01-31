@@ -10,10 +10,12 @@ export type NoUpdateResult = {
   action: "none"
   lastDraft: Release | null
   lastRelease: Release | null
+  lastVersion: Version | null
 }
 export type VersionInferenceResult = {
   action: "version"
   lastRelease: Release | null
+  lastVersion: Version | null
   pullRequestTitles: string[]
   versionIncrement: VersionIncrement
   version: Version
@@ -22,6 +24,7 @@ export type UpsertedReleaseResult = {
   action: "created" | "updated"
   lastDraft: Release | null
   lastRelease: Release | null
+  lastVersion: Version | null
   pullRequestTitles: string[]
   versionIncrement: VersionIncrement
   version: Version
@@ -71,6 +74,7 @@ async function upsertDraftReleaseForReleaseBranch(
   // Finding releases needs to run sequentially to avoid racing on the cached data
   const lastDraft = await releases.findLastDraft(context.branch)
   const lastRelease = await releases.findLast(context.branch)
+  const lastVersion = lastRelease?.tagName ? parse(lastRelease.tagName) : null
 
   const mergedSince = lastRelease?.publishedAt ?? null
   const pullRequests = await fetchPullRequests(context, {
@@ -83,12 +87,13 @@ async function upsertDraftReleaseForReleaseBranch(
     return {
       action: "none",
       lastRelease: lastRelease,
+      lastVersion: lastVersion,
       lastDraft: lastDraft
     }
   }
 
   const versionIncrement = inferImpactFromPRs(pullRequests)
-  const nextVersion = calculateNextVersion(lastRelease, versionIncrement, defaultTag)
+  const nextVersion = calculateNextVersion(lastVersion, versionIncrement, defaultTag)
 
   const { release, action } = await performUpsert(context, nextVersion, lastDraft, lastRelease)
 
@@ -96,6 +101,7 @@ async function upsertDraftReleaseForReleaseBranch(
     action: action,
     lastDraft: lastDraft,
     lastRelease: lastRelease,
+    lastVersion: lastVersion,
     pullRequestTitles: pullRequests.map(pr => pr.title),
     versionIncrement: versionIncrement,
     version: nextVersion,
@@ -115,13 +121,15 @@ async function inferVersionForFeatureBranch(context: Context, defaultTag: string
     return {
       action: "none",
       lastDraft: null,
-      lastRelease: null
+      lastRelease: null,
+      lastVersion: null
     }
   }
 
-  // Use the base branch of the latest PR to find the last release
+  // Use the base branch of the latest PR to find the last release and version
   const targetBranch = featurePR.baseRefName
   const lastRelease = await fetchReleases(context).findLast(targetBranch)
+  const lastVersion = lastRelease?.tagName ? parse(lastRelease.tagName) : null
 
   // Find all the current pull requests merged into the target branch since the last release
   const mergedPullRequests = await fetchPullRequests(context, {
@@ -135,11 +143,12 @@ async function inferVersionForFeatureBranch(context: Context, defaultTag: string
   const titles = prs.map((pr) => pr.title)
   const versionIncrement = inferImpactFromPRs(prs)
 
-  const nextVersion = calculateNextVersion(lastRelease, versionIncrement, defaultTag)
+  const nextVersion = calculateNextVersion(lastVersion, versionIncrement, defaultTag)
 
   return {
     action: "version",
     lastRelease: lastRelease,
+    lastVersion: lastVersion,
     pullRequestTitles: titles,
     versionIncrement: versionIncrement,
     version: nextVersion
@@ -147,13 +156,12 @@ async function inferVersionForFeatureBranch(context: Context, defaultTag: string
 }
 
 function calculateNextVersion(
-  lastRelease: Release | null,
+  lastVersion: Version | null,
   increment: VersionIncrement,
   defaultTag: string
 ): Version {
-  if (lastRelease?.tagName) {
-    const tagName = lastRelease?.tagName
-    return parse(tagName).bump(increment)
+  if (lastVersion) {
+    return lastVersion.bump(increment)
   } else {
     return parse(defaultTag)
   }
