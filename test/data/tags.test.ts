@@ -4,6 +4,8 @@ import type { Tag } from "@/data/tags"
 import { fetchTags } from "@/data/tags"
 import { Octomock } from "../octomock/octomock"
 
+const DEFAULT_TAG_QUERY = "*"
+
 describe("fetchTags", () => {
   let octomock: Octomock
   let context: Context
@@ -41,7 +43,7 @@ describe("fetchTags", () => {
     octomock.stageTags(30)
 
     let count = 0
-    for await (const _ of fetchTags(context, 30)) {
+    for await (const _ of fetchTags(context, DEFAULT_TAG_QUERY, 30)) {
       count++
       if (count === 10) {
         break // Stop early
@@ -128,7 +130,7 @@ describe("findFirstSemverTag", () => {
     octomock.stageTag({ name: "v1.1.0" })
     octomock.stageTag({ name: "v2.0.0" })
 
-    const tags = fetchTags(context, 30)
+    const tags = fetchTags(context, DEFAULT_TAG_QUERY, 30)
     const tag = await tags.findFirstSemverTag()
 
     expect(tag).not.toBeNull()
@@ -141,7 +143,7 @@ describe("findFirstSemverTag", () => {
     octomock.stageTag({ name: "latest" })
     octomock.stageTag({ name: "v1.0.0" })
 
-    const tags = fetchTags(context, 30)
+    const tags = fetchTags(context, DEFAULT_TAG_QUERY, 30)
     const tag = await tags.findFirstSemverTag()
 
     expect(tag).not.toBeNull()
@@ -153,7 +155,7 @@ describe("findFirstSemverTag", () => {
     octomock.stageTag({ name: "latest" })
     octomock.stageTag({ name: "beta" })
 
-    const tags = fetchTags(context, 30)
+    const tags = fetchTags(context, DEFAULT_TAG_QUERY, 30)
     const tag = await tags.findFirstSemverTag()
 
     expect(tag).toBeNull()
@@ -163,7 +165,7 @@ describe("findFirstSemverTag", () => {
     octomock.stageTag({ name: "1.0.0" })
     octomock.stageTag({ name: "2.0.0" })
 
-    const tags = fetchTags(context, 30)
+    const tags = fetchTags(context, DEFAULT_TAG_QUERY, 30)
     const tag = await tags.findFirstSemverTag()
 
     expect(tag).toBeNull()
@@ -175,7 +177,7 @@ describe("findFirstSemverTag", () => {
     octomock.stageTag({ name: "v1.0.0-rc.1" })
     octomock.stageTag({ name: "v1.0.0" })
 
-    const tags = fetchTags(context, 30)
+    const tags = fetchTags(context, DEFAULT_TAG_QUERY, 30)
     const tag = await tags.findFirstSemverTag()
 
     expect(tag).not.toBeNull()
@@ -190,7 +192,7 @@ describe("findFirstSemverTag", () => {
     }))
     octomock.stageTag({ name: "v1.0.0" })
 
-    const tags = fetchTags(context, 10)
+    const tags = fetchTags(context, DEFAULT_TAG_QUERY, 10)
     const tag = await tags.findFirstSemverTag()
 
     // Should return null because the matching tag is beyond maximum tags
@@ -220,7 +222,7 @@ describe("find", () => {
       name: `v1.${i}.0`
     }))
 
-    const tags = fetchTags(context, 15)
+    const tags = fetchTags(context, DEFAULT_TAG_QUERY, 15)
     const tag = await tags.find((t) => t.name === "v1.5.0")
 
     expect(tag).not.toBeNull()
@@ -233,7 +235,7 @@ describe("find", () => {
       name: `v1.${i}.0`
     }))
 
-    const tags = fetchTags(context, 15)
+    const tags = fetchTags(context, DEFAULT_TAG_QUERY, 15)
     const tag = await tags.find((t) => t.name === "v1.20.0")
 
     expect(tag).not.toBeNull()
@@ -246,7 +248,7 @@ describe("find", () => {
       name: `v1.${i}.0`
     }))
 
-    const tags = fetchTags(context, 30)
+    const tags = fetchTags(context, DEFAULT_TAG_QUERY, 30)
     const tag = await tags.find((t) => t.name === "v2.0.0")
 
     expect(tag).toBeNull()
@@ -254,8 +256,60 @@ describe("find", () => {
   })
 })
 
+describe("tagQuery parameter", () => {
+  let octomock: Octomock
+  let context: Context
+
+  beforeEach(() => {
+    octomock = new Octomock()
+
+    context = {
+      octokit: octomock.octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main"
+    }
+  })
+
+  it("should pass query parameter to GraphQL", async () => {
+    octomock.stageTags(5)
+
+    const tags = fetchTags(context, "v")
+    await tags.findFirstSemverTag()
+
+    expect(octomock.graphQL).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ tagQuery: "v" })
+    )
+  })
+
+  it("should pass null query when undefined", async () => {
+    octomock.stageTags(5)
+
+    const tags = fetchTags(context, undefined)
+    await tags.findFirstSemverTag()
+
+    expect(octomock.graphQL).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ tagQuery: null })
+    )
+  })
+
+  it("should pass wildcard query when using default", async () => {
+    octomock.stageTags(5)
+
+    const tags = fetchTags(context, DEFAULT_TAG_QUERY)
+    await tags.findFirstSemverTag()
+
+    expect(octomock.graphQL).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ tagQuery: "*" })
+    )
+  })
+})
+
 async function collectTags(context: Context, perPage?: number, limit?: number): Promise<Tag[]> {
-  return collectAsync(fetchTags(context, perPage), limit)
+  return collectAsync(fetchTags(context, DEFAULT_TAG_QUERY, perPage), limit)
 }
 
 async function collectAsync<T>(source: AsyncIterable<T>, limit?: number): Promise<T[]> {

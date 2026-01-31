@@ -71,12 +71,14 @@ const tagsQuery = `
 query(
   $owner: String!
   $repo: String!
+  $tagQuery: String
   $perPage: Int!
   $cursor: String
 ) {
   repository(owner: $owner, name: $repo) {
     refs(
       refPrefix: "refs/tags/"
+      query: $tagQuery
       orderBy: { field: TAG_COMMIT_DATE, direction: DESC }
       first: $perPage
       after: $cursor
@@ -108,14 +110,18 @@ query(
 /**
  * Fetch GitHub tags lazily with pagination, only fetching more pages when needed.
  * Tags are ordered from newest to oldest based on commit date.
+ *
+ * @param context The GitHub context (owner, repo, octokit)
+ * @param tagNamePattern Optional query string to filter tags (e.g., "v" to only get tags starting with "v")
+ * @param perPage Optional number of tags to fetch per page (default: 30)
  */
-export function fetchTags(context: Context, perPage?: number): Tags {
+export function fetchTags(context: Context, tagNamePattern?: string, perPage?: number): Tags {
   const maxTags = (perPage ?? DEFAULT_PER_PAGE) * MAX_PAGES
 
-  return new Tags(new CachingAsyncIterable(createTagsGenerator(context, perPage)), maxTags)
+  return new Tags(new CachingAsyncIterable(createTagsGenerator(context, tagNamePattern, perPage)), maxTags)
 }
 
-async function* createTagsGenerator(context: Context, perPage?: number): AsyncGenerator<Tag> {
+async function* createTagsGenerator(context: Context, tagNamePattern?: string, perPage?: number): AsyncGenerator<Tag> {
   let cursor: string | null = null
   let hasNextPage = true
 
@@ -123,6 +129,7 @@ async function* createTagsGenerator(context: Context, perPage?: number): AsyncGe
     const response: TagsQueryResponse = await context.octokit.graphql<TagsQueryResponse>(tagsQuery, {
       owner: context.owner,
       repo: context.repo,
+      tagQuery: tagNamePattern ?? null,
       perPage: perPage ?? DEFAULT_PER_PAGE,
       cursor
     })

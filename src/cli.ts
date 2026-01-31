@@ -111,15 +111,15 @@ async function showPullRequests(octokit: Octokit, args: string[]) {
 }
 
 async function showTags(octokit: Octokit, args: string[]) {
-  if (args.length < 2) {
-    console.error("Usage: node dist/index.js tags <owner> <repo>")
+  if (args.length < 3) {
+    console.error("Usage: node dist/index.js tags <owner> <repo> <query>")
     process.exit(1)
   }
-  const [owner, repo] = args
+  const [owner, repo, query] = args
 
   try {
     const context: Context = { octokit, owner, repo, branch: "placeholder" }
-    const tags = fetchTags(context)
+    const tags = fetchTags(context, query)
 
     console.log(`\nFinding first semver tag for ${owner}/${repo}...`)
     const firstSemverTag = await tags.findFirstSemverTag()
