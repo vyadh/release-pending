@@ -1,5 +1,5 @@
-import {describe, expect, it} from "vitest"
-import {parse} from "@/versioning/version"
+import { describe, expect, it } from "vitest"
+import { parse } from "@/versioning/version"
 
 describe("basic version parsing", () => {
   it("should parse version with v prefix", () => {
@@ -7,7 +7,7 @@ describe("basic version parsing", () => {
   })
 
   it("should parse standard version", () => {
-    let version = parse("2.3.4");
+    const version = parse("2.3.4")
 
     expect(version.toString()).toBe("2.3.4")
     expect(version.base).toBe("2.3.4")
@@ -16,7 +16,7 @@ describe("basic version parsing", () => {
   })
 
   it("should parse full version", () => {
-    const version = parse("2.3.4-alpha+build.number");
+    const version = parse("2.3.4-alpha+build.number")
 
     expect(version.toString()).toBe("2.3.4-alpha+build.number")
     expect(version.base).toBe("2.3.4")
@@ -49,9 +49,7 @@ describe("builds", () => {
 
 describe("combined prerelease and build", () => {
   it("should format version with prerelease and build", () => {
-    const version = parse("2.1.1")
-        .withPrerelease("beta")
-        .withBuild(["a", "b", "c"])
+    const version = parse("2.1.1").withPrerelease("beta").withBuild(["a", "b", "c"])
 
     expect(version.toString()).toBe("2.1.1-beta+a.b.c")
   })

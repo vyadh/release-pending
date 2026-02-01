@@ -19,7 +19,7 @@ vi.mock("@/core", () => ({
 import * as contextModule from "@/context"
 import * as coreModule from "@/core"
 import { main } from "@/main"
-import {parse} from "@/versioning/version";
+import { parse } from "@/versioning/version"
 
 describe("main", () => {
   beforeEach(() => {

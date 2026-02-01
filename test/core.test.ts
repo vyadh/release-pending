@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest"
 import type { Context } from "@/context"
 import { isReleaseBranch, performAction } from "@/core"
+import { parse } from "@/versioning/version"
 import { Octomock } from "./octomock/octomock"
-import {parse} from "@/versioning/version";
 
 describe("isReleaseBranch", () => {
   it("should return true when branch is in releaseBranches", () => {

@@ -1,5 +1,4 @@
-import {inc} from "semver";
-import {parse as parseSemVer} from "semver";
+import { inc, parse as parseSemVer } from "semver"
 
 /** Which part of the version to increment, or "none" to leave unchanged. */
 export type VersionIncrement = VersionComponent | "none"

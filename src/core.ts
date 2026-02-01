@@ -3,8 +3,8 @@ import { fetchPullRequests } from "@/data/pull-requests"
 import { createDraftRelease, type Release, updateRelease } from "@/data/release"
 import { generateReleaseNotes } from "@/data/release_notes"
 import { fetchReleases } from "@/data/releases"
+import { parse, type Version, type VersionIncrement } from "@/versioning/version"
 import { inferImpactFromPRs } from "@/versioning/version-bump-inference"
-import {parse, Version, type VersionIncrement} from "@/versioning/version"
 
 export type NoUpdateResult = {
   action: "none"
@@ -102,7 +102,7 @@ async function upsertDraftReleaseForReleaseBranch(
     lastDraft: lastDraft,
     lastRelease: lastRelease,
     lastVersion: lastVersion,
-    pullRequestTitles: pullRequests.map(pr => pr.title),
+    pullRequestTitles: pullRequests.map((pr) => pr.title),
     versionIncrement: versionIncrement,
     version: nextVersion,
     release: release
