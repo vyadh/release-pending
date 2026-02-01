@@ -1,4 +1,5 @@
-import { inc, parse as parseSemVer } from "semver"
+import inc from "semver/functions/inc.js"
+import parse from "semver/functions/parse.js"
 
 /** Which part of the version to increment, or "none" to leave unchanged. */
 export type VersionIncrement = VersionComponent | "none"
@@ -6,14 +7,14 @@ export type VersionIncrement = VersionComponent | "none"
 /** The part of the version to increment as understood by `semver` library. */
 export type VersionComponent = "major" | "minor" | "patch"
 
-export function parse(versionString: string): Version {
-  const semver = parseSemVer(versionString, { loose: false })
+export function parseVersion(versionString: string): Version {
+  const semver = parse(versionString, { loose: false })
   if (semver === null) {
     throw new Error(`Invalid version: ${versionString}`)
   }
   return new Version(
     `${semver.major}.${semver.minor}.${semver.patch}`,
-    semver.prerelease.map((part) => part.toString()),
+    semver.prerelease.map((part: number | string) => part.toString()),
     semver.build
   )
 }

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest"
 import type { Context } from "@/context"
 import { isReleaseBranch, performAction } from "@/core"
-import { parse } from "@/versioning/version"
+import { parseVersion } from "@/versioning/version"
 import { Octomock } from "./octomock/octomock"
 
 describe("isReleaseBranch", () => {
@@ -111,7 +111,7 @@ describe("performAction", () => {
 
       expect(result.action).toBe("created")
       if (result.action === "created" || result.action === "updated") {
-        expect(result.version).toStrictEqual(parse("v0.1.0"))
+        expect(result.version).toStrictEqual(parseVersion("v0.1.0"))
         expect(result.pullRequestTitles).toEqual(["feat: add new feature"])
         expect(result.versionIncrement).toBe("minor")
         expect(result.release).toBeDefined()

@@ -3,7 +3,7 @@ import { fetchPullRequests } from "@/data/pull-requests"
 import { createDraftRelease, type Release, updateRelease } from "@/data/release"
 import { generateReleaseNotes } from "@/data/release_notes"
 import { fetchReleases } from "@/data/releases"
-import { parse, type Version, type VersionIncrement } from "@/versioning/version"
+import { parseVersion, type Version, type VersionIncrement } from "@/versioning/version"
 import { inferImpactFromPRs } from "@/versioning/version-bump-inference"
 
 export type NoUpdateResult = {
@@ -74,7 +74,7 @@ async function upsertDraftReleaseForReleaseBranch(
   // Finding releases needs to run sequentially to avoid racing on the cached data
   const lastDraft = await releases.findLastDraft(context.branch)
   const lastRelease = await releases.findLast(context.branch)
-  const lastVersion = lastRelease?.tagName ? parse(lastRelease.tagName) : null
+  const lastVersion = lastRelease?.tagName ? parseVersion(lastRelease.tagName) : null
 
   const mergedSince = lastRelease?.publishedAt ?? null
   const pullRequests = await fetchPullRequests(context, {
@@ -129,7 +129,7 @@ async function inferVersionForFeatureBranch(context: Context, defaultTag: string
   // Use the base branch of the latest PR to find the last release and version
   const targetBranch = featurePR.baseRefName
   const lastRelease = await fetchReleases(context).findLast(targetBranch)
-  const lastVersion = lastRelease?.tagName ? parse(lastRelease.tagName) : null
+  const lastVersion = lastRelease?.tagName ? parseVersion(lastRelease.tagName) : null
 
   // Find all the current pull requests merged into the target branch since the last release
   const mergedPullRequests = await fetchPullRequests(context, {
@@ -163,7 +163,7 @@ function calculateNextVersion(
   if (lastVersion) {
     return lastVersion.bump(increment)
   } else {
-    return parse(defaultTag)
+    return parseVersion(defaultTag)
   }
 }
 

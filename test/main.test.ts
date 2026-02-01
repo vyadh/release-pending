@@ -19,7 +19,7 @@ vi.mock("@/core", () => ({
 import * as contextModule from "@/context"
 import * as coreModule from "@/core"
 import { main } from "@/main"
-import { parse } from "@/versioning/version"
+import { parseVersion } from "@/versioning/version"
 
 describe("main", () => {
   beforeEach(() => {
@@ -39,7 +39,7 @@ describe("main", () => {
         targetCommitish: "main",
         publishedAt: null
       },
-      lastVersion: parse("1.0.0"),
+      lastVersion: parseVersion("1.0.0"),
       release: {
         id: 123,
         name: "v1.1.0",
@@ -50,7 +50,7 @@ describe("main", () => {
         targetCommitish: "main",
         publishedAt: null
       },
-      version: parse("1.1.0"),
+      version: parseVersion("1.1.0"),
       pullRequestTitles: [
         "feat: feature 1",
         "feat: feature 2",
@@ -178,10 +178,10 @@ describe("main", () => {
         targetCommitish: "main",
         publishedAt: null
       },
-      lastVersion: parse("v1.0.0"),
+      lastVersion: parseVersion("v1.0.0"),
       pullRequestTitles: ["feat: new feature"],
       versionIncrement: "minor",
-      version: parse("v1.1.0")
+      version: parseVersion("v1.1.0")
     })
     vi.spyOn(core, "getInput").mockReturnValue("v0.1.0")
     vi.spyOn(core, "getMultilineInput").mockReturnValue(["main"])
@@ -210,7 +210,7 @@ describe("main", () => {
       lastVersion: null,
       pullRequestTitles: ["feat: new feature"],
       versionIncrement: "minor",
-      version: parse("v0.1.0")
+      version: parseVersion("v0.1.0")
     })
     vi.spyOn(core, "getInput").mockReturnValue("v0.1.0")
     vi.spyOn(core, "getMultilineInput").mockReturnValue(["main"])
