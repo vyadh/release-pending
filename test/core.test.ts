@@ -1,9 +1,45 @@
 import { beforeEach, describe, expect, it } from "vitest"
 import type { Context } from "@/context"
-import { upsertDraftRelease } from "@/core"
+import { isReleaseBranch, performAction } from "@/core"
+import { parseVersion } from "@/versioning/version"
 import { Octomock } from "./octomock/octomock"
 
-describe("upsertDraftRelease", () => {
+describe("isReleaseBranch", () => {
+  it("should return true when branch is in releaseBranches", () => {
+    const context: Context = {
+      octokit: {} as Context["octokit"],
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main",
+      releaseBranches: ["main", "release"]
+    }
+    expect(isReleaseBranch(context)).toBe(true)
+  })
+
+  it("should return false when branch is not in releaseBranches", () => {
+    const context: Context = {
+      octokit: {} as Context["octokit"],
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "feature/my-feature",
+      releaseBranches: ["main", "release"]
+    }
+    expect(isReleaseBranch(context)).toBe(false)
+  })
+
+  it("should return true when releaseBranches only contains the current branch", () => {
+    const context: Context = {
+      octokit: {} as Context["octokit"],
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main",
+      releaseBranches: ["main"]
+    }
+    expect(isReleaseBranch(context)).toBe(true)
+  })
+})
+
+describe("performAction", () => {
   let octomock: Octomock
   let context: Context
 
@@ -13,7 +49,8 @@ describe("upsertDraftRelease", () => {
       octokit: octomock.octokit,
       owner: "test-owner",
       repo: "test-repo",
-      branch: "main"
+      branch: "main",
+      releaseBranches: ["main"]
     }
   })
 
@@ -21,12 +58,13 @@ describe("upsertDraftRelease", () => {
     it("should return 'none' action and null release", async () => {
       // No releases or pull requests added
 
-      const result = await upsertDraftRelease(context, "v0.1.0")
+      const result = await performAction(context, "v0.1.0")
 
       expect(result).toEqual({
         action: "none",
         lastDraft: null,
-        lastRelease: null
+        lastRelease: null,
+        lastVersion: null
       })
       expect(octomock.createRelease).not.toHaveBeenCalled()
       expect(octomock.updateRelease).not.toHaveBeenCalled()
@@ -42,7 +80,7 @@ describe("upsertDraftRelease", () => {
       })
       // No pull requests
 
-      const result = await upsertDraftRelease(context, "v0.1.0")
+      const result = await performAction(context, "v0.1.0")
 
       expect(result.action).toBe("none")
       expect(octomock.createRelease).not.toHaveBeenCalled()
@@ -69,11 +107,11 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(context, "v0.1.0")
+      const result = await performAction(context, "v0.1.0")
 
       expect(result.action).toBe("created")
-      if (result.action !== "none") {
-        expect(result.version).toBe("v0.1.0")
+      if (result.action === "created" || result.action === "updated") {
+        expect(result.version).toStrictEqual(parseVersion("v0.1.0"))
         expect(result.pullRequestTitles).toEqual(["feat: add new feature"])
         expect(result.versionIncrement).toBe("minor")
         expect(result.release).toBeDefined()
@@ -119,11 +157,11 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(context, "v0.1.0")
+      const result = await performAction(context, "v0.1.0")
 
       expect(result.action).toBe("created")
-      if (result.action !== "none") {
-        expect(result.version).toBe("v1.2.4")
+      if (result.action === "created" || result.action === "updated") {
+        expect(result.version.toString()).toBe("1.2.4")
         expect(result.versionIncrement).toBe("patch")
         expect(result.pullRequestTitles).toEqual(["fix: correct bug"])
         expect(result.lastRelease?.tagName).toBe("v1.2.3")
@@ -161,11 +199,11 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(context, "v0.1.0")
+      const result = await performAction(context, "v0.1.0")
 
       expect(result.action).toBe("created")
-      if (result.action !== "none") {
-        expect(result.version).toBe("v2.0.0")
+      if (result.action === "created" || result.action === "updated") {
+        expect(result.version.toString()).toBe("2.0.0")
         expect(result.versionIncrement).toBe("major")
       }
     })
@@ -195,11 +233,11 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(context, "v0.1.0")
+      const result = await performAction(context, "v0.1.0")
 
       expect(result.action).toBe("created")
-      if (result.action !== "none") {
-        expect(result.version).toBe("v1.6.0")
+      if (result.action === "created" || result.action === "updated") {
+        expect(result.version.toString()).toBe("1.6.0")
         expect(result.versionIncrement).toBe("minor")
       }
     })
@@ -239,11 +277,11 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(context, "v0.1.0")
+      const result = await performAction(context, "v0.1.0")
 
       expect(result.action).toBe("updated")
-      if (result.action !== "none") {
-        expect(result.version).toBe("v0.9.1")
+      if (result.action === "created" || result.action === "updated") {
+        expect(result.version.toString()).toBe("0.9.1")
         expect(result.versionIncrement).toBe("patch")
         expect(result.release.id).toBe(10)
       }
@@ -305,11 +343,11 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(context, "v0.1.0")
+      const result = await performAction(context, "v0.1.0")
 
       expect(result.action).toBe("updated")
-      if (result.action !== "none") {
-        expect(result.version).toBe("v1.1.0")
+      if (result.action === "created" || result.action === "updated") {
+        expect(result.version.toString()).toBe("1.1.0")
         expect(result.pullRequestTitles).toHaveLength(3)
         expect(result.versionIncrement).toBe("minor")
       }
@@ -357,11 +395,11 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(context, "v0.1.0")
+      const result = await performAction(context, "v0.1.0")
 
       expect(result.action).toBe("updated")
-      if (result.action !== "none") {
-        expect(result.version).toBe("v1.0.0")
+      if (result.action === "created" || result.action === "updated") {
+        expect(result.version.toString()).toBe("1.0.0")
         expect(result.versionIncrement).toBe("major")
       }
 
@@ -400,11 +438,11 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(context, "v0.1.0")
+      const result = await performAction(context, "v0.1.0")
 
       expect(result.action).toBe("updated")
-      if (result.action !== "none") {
-        expect(result.version).toBe("v0.1.0")
+      if (result.action === "created" || result.action === "updated") {
+        expect(result.version.toString()).toBe("0.1.0")
       }
 
       expect(octomock.generateReleaseNotes).toHaveBeenCalledWith({
@@ -449,11 +487,11 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(context, "v0.1.0")
+      const result = await performAction(context, "v0.1.0")
 
       // Should bump from v1.0.0 (main branch), not v2.0.0 (develop branch)
-      if (result.action !== "none") {
-        expect(result.version).toBe("v1.1.0")
+      if (result.action === "created" || result.action === "updated") {
+        expect(result.version.toString()).toBe("1.1.0")
       }
     })
 
@@ -484,7 +522,7 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(context, "v0.1.0")
+      const result = await performAction(context, "v0.1.0")
 
       expect(result.action).toBe("updated")
       // Should update release id 2 (main branch), not id 3 (develop branch)
@@ -517,10 +555,10 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(context, "v1.0.0")
+      const result = await performAction(context, "v1.0.0")
 
-      if (result.action !== "none") {
-        expect(result.version).toBe("v1.0.0")
+      if (result.action === "created" || result.action === "updated") {
+        expect(result.version.toString()).toBe("1.0.0")
       }
     })
 
@@ -554,9 +592,9 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(context, "v0.1.0")
+      const result = await performAction(context, "v0.1.0")
 
-      if (result.action !== "none") {
+      if (result.action === "created" || result.action === "updated") {
         expect(result.pullRequestTitles).toHaveLength(3)
         expect(result.versionIncrement).toBe("minor")
       }
@@ -588,12 +626,162 @@ describe("upsertDraftRelease", () => {
         headers: {}
       })
 
-      const result = await upsertDraftRelease(context, "v0.1.0")
+      const result = await performAction(context, "v0.1.0")
 
       // Non-conventional commits result in "none" increment, so version stays the same
-      if (result.action !== "none") {
+      if (result.action === "created" || result.action === "updated") {
         expect(result.versionIncrement).toBe("none")
-        expect(result.version).toBe("v1.0.0")
+        expect(result.version.toString()).toBe("1.0.0")
+      }
+    })
+  })
+})
+
+describe("performAction on feature branch", () => {
+  let octomock: Octomock
+  let context: Context
+
+  beforeEach(() => {
+    octomock = new Octomock()
+    context = {
+      octokit: octomock.octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "feature/my-feature",
+      releaseBranches: ["main"]
+    }
+  })
+
+  describe("when no outgoing pull requests exist", () => {
+    it("should return 'none' action", async () => {
+      const result = await performAction(context, "v0.1.0")
+
+      expect(result).toEqual({
+        action: "none",
+        lastDraft: null,
+        lastRelease: null,
+        lastVersion: null
+      })
+      expect(octomock.createRelease).not.toHaveBeenCalled()
+      expect(octomock.updateRelease).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("when outgoing pull requests exist", () => {
+    it("should return 'version' action with inferred version without creating a release", async () => {
+      octomock.stageRelease({
+        id: 1,
+        tag_name: "v1.0.0",
+        target_commitish: "main",
+        draft: false,
+        published_at: "2024-01-01T00:00:00Z"
+      })
+      octomock.stagePullRequest({
+        number: 1,
+        title: "feat: add new feature",
+        baseRefName: "main",
+        headRefName: "feature/my-feature",
+        state: "OPEN",
+        mergedAt: null
+      })
+
+      const result = await performAction(context, "v0.1.0")
+
+      expect(result.action).toBe("version")
+      if (result.action === "version") {
+        expect(result.version.toString()).toBe("1.1.0")
+        expect(result.versionIncrement).toBe("minor")
+        expect(result.pullRequestTitles).toEqual(["feat: add new feature"])
+        expect(result.lastRelease?.tagName).toBe("v1.0.0")
+      }
+      expect(octomock.createRelease).not.toHaveBeenCalled()
+      expect(octomock.updateRelease).not.toHaveBeenCalled()
+    })
+
+    it("should use base branch of first PR to find last release", async () => {
+      octomock.stageRelease({
+        id: 1,
+        tag_name: "v1.0.0",
+        target_commitish: "main",
+        draft: false,
+        published_at: "2024-01-01T00:00:00Z"
+      })
+      octomock.stageRelease({
+        id: 2,
+        tag_name: "v2.0.0",
+        target_commitish: "develop",
+        draft: false,
+        published_at: "2024-02-01T00:00:00Z"
+      })
+      octomock.stagePullRequest({
+        number: 1,
+        title: "fix: bug fix",
+        baseRefName: "main",
+        headRefName: "feature/my-feature",
+        state: "OPEN",
+        mergedAt: null
+      })
+
+      const result = await performAction(context, "v0.1.0")
+
+      // Should bump from v1.0.0 (main branch), not v2.0.0 (develop branch)
+      if (result.action === "version") {
+        expect(result.version.toString()).toBe("1.0.1")
+        expect(result.lastRelease?.tagName).toBe("v1.0.0")
+      }
+    })
+
+    it("should use default tag when no releases exist on base branch", async () => {
+      octomock.stagePullRequest({
+        number: 1,
+        title: "feat: initial feature",
+        baseRefName: "main",
+        headRefName: "feature/my-feature",
+        state: "OPEN",
+        mergedAt: null
+      })
+
+      const result = await performAction(context, "v0.1.0")
+
+      if (result.action === "version") {
+        expect(result.version.toString()).toBe("0.1.0")
+        expect(result.lastRelease).toBeNull()
+      }
+    })
+
+    it("should combine outgoing PR with merged PRs on base branch for version inference", async () => {
+      octomock.stageRelease({
+        id: 1,
+        tag_name: "v1.0.0",
+        target_commitish: "main",
+        draft: false,
+        published_at: "2024-01-01T00:00:00Z"
+      })
+      // Outgoing PR from feature branch
+      octomock.stagePullRequest({
+        number: 1,
+        title: "fix: small fix",
+        baseRefName: "main",
+        headRefName: "feature/my-feature",
+        state: "OPEN",
+        mergedAt: null
+      })
+      // Merged PR on main
+      octomock.stagePullRequest({
+        number: 2,
+        title: "feat: big feature",
+        baseRefName: "main",
+        headRefName: "feature/other",
+        state: "MERGED",
+        mergedAt: "2024-06-01T00:00:00Z"
+      })
+
+      const result = await performAction(context, "v0.1.0")
+
+      // Should be minor because of the merged feat PR
+      if (result.action === "version") {
+        expect(result.versionIncrement).toBe("minor")
+        expect(result.version.toString()).toBe("1.1.0")
       }
     })
   })

@@ -1,5 +1,5 @@
 {
-  "name": "release-pending",
+  "name": "release-party",
   "version": "0.1.0",
   "description": "GitHub Release-based versioning and management 📦",
   "main": "dist/index.js",
@@ -12,21 +12,22 @@
     "lint": "biome check --error-on-warnings",
     "lint-ci": "biome ci --error-on-warnings --reporter=github",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "cli": "esbuild src/cli.ts --bundle --platform=node --format=esm | node -"
   },
   "dependencies": {
     "octokit": "^5.0.5",
     "semver": "^7.7.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.11",
-    "@types/node": "^25.0.9",
+    "@biomejs/biome": "2.3.13",
+    "@types/node": "^25.0.10",
     "@types/semver": "^7.7.1",
     "esbuild": "^0.27.2",
     "npm-check-updates": "^19.3.1",
     "proxy": "^2.2.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.17"
+    "vitest": "^4.0.18"
   },
   "private": true
 }

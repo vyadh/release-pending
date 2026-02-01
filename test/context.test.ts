@@ -29,7 +29,8 @@ describe("createContext", () => {
       octokit: { mockOctokit: true },
       owner: "test-owner",
       repo: "test-repo",
-      branch: "main"
+      branch: "main",
+      releaseBranches: ["main"]
     })
     expect(octokitFactory.createOctokit).toHaveBeenCalledWith({ auth: "test-token" })
   })
@@ -115,5 +116,23 @@ describe("createContext", () => {
     const context = createContext()
 
     expect(context.branch).toBe("feature/ABC-123_my-feature")
+  })
+
+  it("uses provided releaseBranches when specified", () => {
+    const context = createContext(["main", "develop"])
+
+    expect(context.releaseBranches).toEqual(["main", "develop"])
+  })
+
+  it("uses current branch as releaseBranches when empty array provided", () => {
+    const context = createContext([])
+
+    expect(context.releaseBranches).toEqual(["main"])
+  })
+
+  it("uses current branch as releaseBranches when no parameter provided", () => {
+    const context = createContext()
+
+    expect(context.releaseBranches).toEqual(["main"])
   })
 })

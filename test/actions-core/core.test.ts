@@ -143,6 +143,30 @@ describe("@actions/core", () => {
     )
   })
 
+  it("getMultilineInput works", () => {
+    expect(core.getMultilineInput("my input list")).toEqual(["val1", "val2", "val3"])
+  })
+
+  it("getMultilineInput trims whitespace by default", () => {
+    expect(core.getMultilineInput("list with trailing whitespace")).toEqual(["val1", "val2"])
+  })
+
+  it("getMultilineInput trims whitespace when option is explicitly true", () => {
+    expect(
+      core.getMultilineInput("list with trailing whitespace", {
+        trimWhitespace: true
+      })
+    ).toEqual(["val1", "val2"])
+  })
+
+  it("getMultilineInput does not trim whitespace when option is false", () => {
+    expect(
+      core.getMultilineInput("list with trailing whitespace", {
+        trimWhitespace: false
+      })
+    ).toEqual(["  val1  ", "  val2  ", "  "])
+  })
+
   it("legacy setOutput produces the correct command", () => {
     core.setOutput("some output", "some value")
     assertWriteCalls([os.EOL, `::set-output name=some output::some value${os.EOL}`])

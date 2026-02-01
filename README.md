@@ -1,30 +1,28 @@
-# Release Pending 📦
+# 📦 Release Party 🎉
 
-A GitHub Action for release and version management.
+A GitHub Action for release and version management. Maintains GitHub releases and generates version numbers without a full clone.
+
 
 ## Current Status
 
-🚧 This action is under development and non-functional. 🚧
+🚧 This action is under active development. 🚧
 
 
-## Features (mostly unimplemented 🚧)
+## Features
 
-- Maintains a GitHub draft release for the default or nominated (tracked) release branches with GitHub generated release notes.
-- Provides version numbers from pull request titles in conventional commits style for tracked branches.
-- Provides version numbers from branch names for untracked branches, matching against simple patterns inferring fix or feature since the last release on the default branch.
-- Respects an existing version tag against the current commit, overriding the version inference and used for the release tag.
-- Infers non-tracked branches are prerelease versions, populating semver appropriately.
-- Respects last release indicator when operating on the default branch.
+- Maintains a GitHub draft release of the pull requests since the last release.
+- Allows curation of a draft for any branch to be released by utilising GitHub's concept of a `target_commitish`, linking branch and draft release.
+- Uses GitHub's own release notes generator allowing use of [standard release note templates](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes).
+- Infers version from pull request titles in conventional commits style.
+- Supports versioning feature branches when there is an outgoing pull request to a release branch.
 
 
 ## Design Goals
 
-- Minimal dependencies, the only direct dependency being [octokit](https://github.com/octokit/octokit.js).
-- Use the GitHub REST and GraphQL APIs efficiently to minimize API calls.
-- Transparent operation when running in debug mode.
-- Delegate release notes generation to GitHub and it's templates.
-- No commit history walking, local or via the API, making it suitable for large repositories.
-- Issue tracker support for auto generated issue links that are not GitHub (turn ids into links). Might not be able to do this if we are delegating to GitHub.
+- Minimal dependencies, the only direct dependencies being [octokit](https://github.com/octokit/octokit.js) and [semver](https://github.com/npm/node-semver).
+- Use the GitHub REST and GraphQL APIs efficiently to minimise API calls.
+- Transparent operation, indicating information used to reach versioning/release decisions.
+- Limit commit history walking, local or via the API, making it suitable for large repositories.
 
 
 ## Requirements
@@ -34,23 +32,22 @@ Node 24+ is required to run this action.
 
 ## Assumptions
 
-All changes to the release branch happen though PRs.
+All changes happen through PRs. Direct pushes will not be used in version inference.
 
 
 ## Limitations
 
-In order to keep the GitHub API calls to a minimum for version number generation, this action queries the GitHub API for PRs merged since the last release rather than walking the full commit graph (which can be very slow even with GraphQL-based query).
+In order to keep the GitHub API calls to a minimum for version number generation, this action queries the GitHub API for PRs merged since the last release rather than walking the full commit graph, as this can be very slow even with GraphQL-based query.
 
-This means that any higher level release PR that merges another branch constituting multiple PRs into the branch being released should contain a PR conventional commits title that reflects the overall change to infer the correct version bump. This can be amended on the merge PR and an action that re-runs the action if needed.
+This means that any higher level release PR that merges another branch, constituting multiple PRs into the branch being released, should contain a PR conventional commits title that reflects the overall change to infer the correct version bump. This can be amended on the merge PR and an action that re-runs the action if needed.
 
-Release notes are not effected by this as it is delegated to GitHub.
+Release notes are not affected by this as it is delegated to GitHub.
 
 
 ## How does it work?
 
 Very specifically, assuming a specific branch is being operated on, the action:
 
-If the branch is a tracked (default or nominated) branch, the action:
 1. Finds the latest non-draft release for the current branch. This is considered the previous release.
 2. Finds all the PRs merged to the branch since the previous release.
 3. Infers a version bump based on PR titles in conventional commit style.
@@ -59,12 +56,6 @@ If the branch is a tracked (default or nominated) branch, the action:
    - If no release exists, creates a new draft release with the new version.
 
 Release notes are generated using GitHub's release notes generator. This can be customised by a `.github/release.yaml` file. See [GitHub docs here](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes#configuring-automatically-generated-release-notes) for more information.
-
-If the branch is not a tracked branch, the action:
-1. Finds the latest non-draft release for the current branch. This is considered the previous release.
-2. Checks whether a version tag exists on the current commit.
-3. Otherwise, infers a version bump from the branch name, matching against simple patterns inferring fix or feature since the last release on the default branch. If no bump can be inferred, the action bumps the fix version.
-4. Adds prerelease semver data using the branch name.
 
 
 ## Permissions
@@ -85,7 +76,8 @@ Note also that `contents: write` is required to read non-public(?) draft release
 ## Outputs
 
 - `action`: The action taken by the release process.
-- `version`: The inferred or determined version for the release.
+- `last-version`: The last release that the version was calculated from.
+- `next-version`: The inferred or determined version for the release.
 - `release-id`: The numeric identifier of the created or updated release.
 
 
@@ -96,10 +88,18 @@ Since Node 24+ supports a proxy natively but is not enabled by default. It canno
 
 ## Comparisons with Other Tools
 
-This action was born out of an attempt to adopt [Release Drafter](https://github.com/release-drafter/release-drafter), which appears to be unmaintained with various security PRs not being actioned. Forking was attempted but updating the dependencies was difficult due to various breaking changes. It seemed better to start afresh with a more efficient implementation that works with GitHub's own release notes generation and from conventional commit PR titles.
+[Release Drafter](https://github.com/release-drafter/release-drafter) - This action was born out of an attempt to adopt this action, but it appeared unmaintained at the time this action's basic functionality was completed, though it is now active again so if you want functionality-rich solution and are happy to use labels for versioning, Release Drafter is a good choice. The main differences are:
+- Release Drafter relies on PR labels to determine version bumps, whereas Release Party infers from PR titles expressed in conventional commits style.
+- Release Party benefits from a smaller attack surface due to minimal dependencies.
 
-[Semantic Release](https://github.com/semantic-release/semantic-release) is a comprehensive and well maintained toolkit for release and version generation that works with the commit history to generate versions. Release Pending relies on PR titles and branch names, which improves efficiency and allows versions to be generated for any branch. This also makes it suitable for organizations that do not universally adopt conventional commits. It also benefits from a smaller attack surface due to its minimal dependencies.
+[Semantic Release](https://github.com/semantic-release/semantic-release) is a comprehensive and well maintained toolkit for release and version generation that works with the commit history to generate versions. Release Party in contrast:
+- Is intended to run against any branch so it relies on PR titles and branch names.
+- Suitable for projects/organisations that do not universally adopt conventional commits.
+- Release Party benefits from a smaller attack surface due to minimal dependencies.
 
-[Release Please](https://github.com/googleapis/release-please) is useful when version numbers in a repository are updated as part of a release, particularly convenient for projects it supports as an ecosystem. It makes use of release PRs, which seems a powerful and flexible approach. Release Pending is aimed more at projects that prefer to keep version numbers out of the codebase where a release PR would be redundant. This action infers version bumps from PR titles rather than commits.
+[Release Please](https://github.com/googleapis/release-please) is useful when version numbers in a repository are updated as part of a release, particularly convenient for ecosystems it directly supports. It makes use of release PRs, which seems a powerful and flexible approach. Release Party in contrast:
+- Is aimed more at projects that prefer to keep version numbers out of the codebase where a release PR would be redundant.
+- Infers version bumps from PR titles rather than commits.
+- Release Party benefits from a smaller attack surface due to minimal dependencies.
 
-Versioning tools like [GitVersion](https://gitversion.net) and [Cocogitto](https://docs.cocogitto.io) avoid dependencies on GitHub, but they require a full clone of the repository, which is ideally avoided for big projects.
+Versioning tools like [GitVersion](https://gitversion.net) and [Cocogitto](https://docs.cocogitto.io) avoid dependencies on GitHub, but they also require a full clone of the repository, which is best avoided for big repositories.

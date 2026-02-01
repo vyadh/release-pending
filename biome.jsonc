@@ -29,6 +29,18 @@
       "exports"
     ]
   },
+  "linter": {
+    "rules": {
+      "style": {
+        "useConsistentObjectDefinitions": {
+          "level": "error",
+          "options": {
+            "syntax": "explicit"
+          }
+        }
+      }
+    }
+  },
   "json": {
     "formatter": {
       "expand": "always"

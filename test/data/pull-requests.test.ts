@@ -1,13 +1,22 @@
 import { beforeEach, describe, expect, it } from "vitest"
 import type { Context } from "@/context"
-import type { PullRequest } from "@/data/pull-requests"
+import type { IncomingPullRequestsParams, OutgoingPullRequestsParams } from "@/data/pull-requests"
 import { fetchPullRequests } from "@/data/pull-requests"
 import { Octomock } from "../octomock/octomock"
 
-describe("fetchPullRequests", () => {
+describe("fetchPullRequests with IncomingPullRequestsParams", () => {
   let context: Context
   let octomock: Octomock
-  const inclusiveMergedSince = null // No cutoff date
+  const baseRefName = "main"
+
+  function createParams(overrides?: Partial<IncomingPullRequestsParams>): IncomingPullRequestsParams {
+    return {
+      type: "incoming",
+      baseRefName: baseRefName,
+      mergedSince: null, // No cutoff date by default
+      ...overrides
+    }
+  }
 
   beforeEach(() => {
     octomock = new Octomock()
@@ -15,12 +24,29 @@ describe("fetchPullRequests", () => {
       octokit: octomock.octokit,
       owner: "test-owner",
       repo: "test-repo",
-      branch: "main"
+      branch: "main",
+      releaseBranches: ["main"]
     }
   })
 
+  it("first when no pull requests is null", async () => {
+    const pr = await fetchPullRequests(context, createParams()).first()
+
+    expect(pr).toBeNull()
+    expect(octomock.graphQL).toHaveBeenCalledTimes(1)
+  })
+
+  it("first when a single PR should return it", async () => {
+    octomock.stagePullRequest({ number: 1, title: "PR 1" })
+
+    const pr = await fetchPullRequests(context, createParams({ perPage: 100 })).first()
+
+    expect(pr?.number).toBe(1)
+    expect(octomock.graphQL).toHaveBeenCalledTimes(1)
+  })
+
   it("should handle no pull requests", async () => {
-    const prs = await collectPullRequests(context, inclusiveMergedSince)
+    const prs = await fetchPullRequests(context, createParams()).collect()
 
     expect(prs).toHaveLength(0)
     expect(octomock.graphQL).toHaveBeenCalledTimes(1)
@@ -29,20 +55,19 @@ describe("fetchPullRequests", () => {
   it("should fetch single page of pull requests", async () => {
     octomock.stagePullRequests(10)
 
-    const prs = await collectPullRequests(context, inclusiveMergedSince, 100)
+    const prs = await fetchPullRequests(context, createParams({ perPage: 100 })).collect()
 
     expect(prs).toHaveLength(10)
     expect(octomock.graphQL).toHaveBeenCalledTimes(1)
   })
 
   it("should handle a single PR", async () => {
-    octomock.stagePullRequest({ number: 1, title: "PR 1", mergeCommit: { oid: "def456" } })
+    octomock.stagePullRequest({ number: 1, title: "PR 1" })
 
-    const prs = await collectPullRequests(context, inclusiveMergedSince, 100)
+    const prs = await fetchPullRequests(context, createParams({ perPage: 100 })).collect()
 
     expect(prs).toHaveLength(1)
     expect(prs[0].number).toBe(1)
-    expect(prs[0].oid).toBe("def456")
     expect(octomock.graphQL).toHaveBeenCalledTimes(1)
   })
 
@@ -50,7 +75,7 @@ describe("fetchPullRequests", () => {
     octomock.stagePullRequests(30)
 
     let count = 0
-    for await (const _ of fetchPullRequests(context, inclusiveMergedSince, 100)) {
+    for await (const _ of fetchPullRequests(context, createParams({ perPage: 100 }))) {
       count++
       if (count === 10) {
         break // Stop early
@@ -64,7 +89,7 @@ describe("fetchPullRequests", () => {
   it("should fetch next page when all PRs from current page are consumed", async () => {
     octomock.stagePullRequests(50)
 
-    const prs = await collectPullRequests(context, inclusiveMergedSince, 30)
+    const prs = await fetchPullRequests(context, createParams({ perPage: 30 })).collect()
 
     expect(prs).toHaveLength(50)
     expect(octomock.graphQL).toHaveBeenCalledTimes(2)
@@ -75,19 +100,19 @@ describe("fetchPullRequests", () => {
       title: "Fix bug in feature X",
       number: 42,
       baseRefName: "main",
-      mergedAt: "2026-01-01T12:00:00Z",
-      mergeCommit: { oid: "abc123def456" }
+      state: "MERGED",
+      mergedAt: "2026-01-01T12:00:00Z"
     })
 
-    const prs = await collectPullRequests(context, inclusiveMergedSince)
+    const prs = await fetchPullRequests(context, createParams()).collect()
 
     expect(prs).toHaveLength(1)
     expect(prs[0]).toEqual({
       title: "Fix bug in feature X",
       number: 42,
       baseRefName: "main",
-      mergedAt: new Date("2026-01-01T12:00:00Z"),
-      oid: "abc123def456"
+      state: "MERGED",
+      mergedAt: new Date("2026-01-01T12:00:00Z")
     })
   })
 
@@ -96,7 +121,7 @@ describe("fetchPullRequests", () => {
 
     // Should throw before yielding any PRs
     // noinspection ES6RedundantAwait
-    await expect(collectPullRequests(context, inclusiveMergedSince)).rejects.toThrow("Rate limit exceeded")
+    await expect(fetchPullRequests(context, createParams()).collect()).rejects.toThrow("Rate limit exceeded")
 
     expect(octomock.graphQL).toHaveBeenCalledTimes(1)
   })
@@ -107,7 +132,7 @@ describe("fetchPullRequests", () => {
     // Should throw before yielding any PRs
     // noinspection ES6RedundantAwait
     await expect(
-      collectPullRequests({ ...context, branch: "nonexistent-branch" }, inclusiveMergedSince)
+      fetchPullRequests(context, createParams({ baseRefName: "nonexistent-branch" })).collect()
     ).rejects.toThrow("Could not resolve to a Ref")
 
     expect(octomock.graphQL).toHaveBeenCalledTimes(1)
@@ -117,7 +142,7 @@ describe("fetchPullRequests", () => {
     octomock.stagePullRequests(200)
 
     let count = 0
-    for await (const pr of fetchPullRequests(context, inclusiveMergedSince, 100)) {
+    for await (const pr of fetchPullRequests(context, createParams({ perPage: 100 }))) {
       count++
       expect(pr.number).toBeDefined()
       if (count === 50) {
@@ -136,29 +161,25 @@ describe("fetchPullRequests", () => {
     octomock.stagePullRequest({
       number: 1,
       title: "PR 1",
-      mergedAt: "2026-01-10T00:00:00Z",
-      mergeCommit: { oid: "commit_1" }
+      mergedAt: "2026-01-10T00:00:00Z"
     })
     octomock.stagePullRequest({
       number: 2,
       title: "PR 2",
-      mergedAt: "2026-01-05T00:00:00Z",
-      mergeCommit: { oid: "commit_2" }
+      mergedAt: "2026-01-05T00:00:00Z"
     })
     octomock.stagePullRequest({
       number: 3,
       title: "PR 3",
-      mergedAt: "2026-01-06T12:00:00Z",
-      mergeCommit: { oid: "commit_3" }
+      mergedAt: "2026-01-06T12:00:00Z"
     })
     octomock.stagePullRequest({
       number: 4,
       title: "PR 5",
-      mergedAt: "2026-01-04T12:00:00Z",
-      mergeCommit: { oid: "commit_4" }
+      mergedAt: "2026-01-04T12:00:00Z"
     })
 
-    const prs = await collectPullRequests(context, mergedSince)
+    const prs = await fetchPullRequests(context, createParams({ mergedSince: mergedSince })).collect()
 
     expect(prs).toHaveLength(3)
     expect(prs[0].number).toBe(1)
@@ -173,29 +194,28 @@ describe("fetchPullRequests", () => {
     octomock.stagePullRequest({
       number: 1,
       title: "PR 1",
-      mergedAt: "2026-01-10T00:00:00Z",
-      mergeCommit: { oid: "commit_1" }
+      mergedAt: "2026-01-10T00:00:00Z"
     })
     octomock.stagePullRequest({
       number: 2,
       title: "PR 2",
-      mergedAt: "2026-01-06T00:00:00Z",
-      mergeCommit: { oid: "commit_2" }
+      mergedAt: "2026-01-06T00:00:00Z"
     })
     octomock.stagePullRequest({
       number: 3,
       title: "PR 3",
-      mergedAt: "2026-01-04T00:00:00Z",
-      mergeCommit: { oid: "commit_3" }
+      mergedAt: "2026-01-04T00:00:00Z"
     }) // Before cutoff
     octomock.stagePullRequest({
       number: 4,
       title: "PR 4",
-      mergedAt: "2026-01-03T00:00:00Z",
-      mergeCommit: { oid: "commit_4" }
+      mergedAt: "2026-01-03T00:00:00Z"
     })
 
-    const prs = await collectPullRequests(context, mergedSince, 3)
+    const prs = await fetchPullRequests(
+      context,
+      createParams({ mergedSince: mergedSince, perPage: 3 })
+    ).collect()
 
     // Should only yield PRs 1 and 2, and stop when PR 3 (before cutoff) is encountered
     expect(prs).toHaveLength(2)
@@ -206,11 +226,87 @@ describe("fetchPullRequests", () => {
   })
 })
 
-async function collectPullRequests(
-  context: Context,
-  mergedSince: Date | null,
-  perPage?: number,
-  limit?: number
-): Promise<PullRequest[]> {
-  return fetchPullRequests(context, mergedSince, perPage).collect(limit)
-}
+describe("fetchPullRequests with OutgoingPullRequestsParams", () => {
+  let context: Context
+  let octomock: Octomock
+  const headRefName = "feature-branch"
+
+  function createParams(overrides?: Partial<OutgoingPullRequestsParams>): OutgoingPullRequestsParams {
+    return {
+      type: "outgoing",
+      headRefName: headRefName,
+      ...overrides
+    }
+  }
+
+  beforeEach(() => {
+    octomock = new Octomock()
+    context = {
+      octokit: octomock.octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main",
+      releaseBranches: ["main"]
+    }
+  })
+
+  it("should handle no pull requests", async () => {
+    const prs = await fetchPullRequests(context, createParams()).collect()
+
+    expect(prs).toHaveLength(0)
+    expect(octomock.graphQL).toHaveBeenCalledTimes(1)
+  })
+
+  it("should fetch pull requests from the specified head branch", async () => {
+    octomock.stagePullRequest({
+      number: 1,
+      title: "Feature PR",
+      baseRefName: "main",
+      headRefName: "feature-branch",
+      state: "OPEN",
+      mergedAt: null
+    })
+
+    const prs = await fetchPullRequests(context, createParams()).collect()
+
+    expect(prs).toHaveLength(1)
+    expect(prs[0].number).toBe(1)
+    expect(prs[0].title).toBe("Feature PR")
+    expect(octomock.graphQL).toHaveBeenCalledTimes(1)
+  })
+
+  it("should fetch single page of pull requests", async () => {
+    octomock.stagePullRequests(10, (_) => ({
+      baseRefName: "main",
+      headRefName: "feature-branch",
+      state: "OPEN"
+    }))
+
+    const prs = await fetchPullRequests(context, createParams({ perPage: 100 })).collect()
+
+    expect(prs).toHaveLength(10)
+    expect(octomock.graphQL).toHaveBeenCalledTimes(1)
+  })
+
+  it("should fetch next page when all PRs from current page are consumed", async () => {
+    octomock.stagePullRequests(50, (_) => ({
+      baseRefName: "main",
+      headRefName: "feature-branch",
+      state: "OPEN"
+    }))
+
+    const prs = await fetchPullRequests(context, createParams({ perPage: 30 })).collect()
+
+    expect(prs).toHaveLength(50)
+    expect(octomock.graphQL).toHaveBeenCalledTimes(2)
+  })
+
+  it("should handle GraphQL errors", async () => {
+    octomock.injectGraphQLError({ message: "Rate limit exceeded" })
+
+    // noinspection ES6RedundantAwait
+    await expect(fetchPullRequests(context, createParams()).collect()).rejects.toThrow("Rate limit exceeded")
+
+    expect(octomock.graphQL).toHaveBeenCalledTimes(1)
+  })
+})

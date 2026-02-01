@@ -37,7 +37,7 @@ var require_fast_content_type_parse = __commonJS({
     var defaultContentType = { type: "", parameters: new NullObject() };
     Object.freeze(defaultContentType.parameters);
     Object.freeze(defaultContentType);
-    function parse2(header) {
+    function parse3(header) {
       if (typeof header !== "string") {
         throw new TypeError("argument header is required and must be a string");
       }
@@ -113,8 +113,8 @@ var require_fast_content_type_parse = __commonJS({
       }
       return result;
     }
-    module.exports.default = { parse: parse2, safeParse: safeParse2 };
-    module.exports.parse = parse2;
+    module.exports.default = { parse: parse3, safeParse: safeParse2 };
+    module.exports.parse = parse3;
     module.exports.safeParse = safeParse2;
     module.exports.defaultContentType = defaultContentType;
   }
@@ -1916,6 +1916,28 @@ var require_inc = __commonJS({
   }
 });
 
+// node_modules/semver/functions/parse.js
+var require_parse = __commonJS({
+  "node_modules/semver/functions/parse.js"(exports, module) {
+    "use strict";
+    var SemVer = require_semver();
+    var parse3 = (version, options, throwErrors = false) => {
+      if (version instanceof SemVer) {
+        return version;
+      }
+      try {
+        return new SemVer(version, options);
+      } catch (er) {
+        if (!throwErrors) {
+          return null;
+        }
+        throw er;
+      }
+    };
+    module.exports = parse3;
+  }
+});
+
 // src/actions-core/core.ts
 import * as os3 from "node:os";
 
@@ -2028,6 +2050,13 @@ function getInput(name, options) {
     return val;
   }
   return val.trim();
+}
+function getMultilineInput(name, options) {
+  const inputs = getInput(name, options).split("\n").filter((x) => x !== "");
+  if (options && options.trimWhitespace === false) {
+    return inputs;
+  }
+  return inputs.map((input) => input.trim());
 }
 function setOutput(name, value) {
   const filePath = process.env.GITHUB_OUTPUT || "";
@@ -8764,12 +8793,19 @@ function createOctokit(config) {
 }
 
 // src/context.ts
-function createContext() {
+function createContext(releaseBranches = []) {
   const token = getGitHubToken();
   const octokit = createOctokit({ auth: token });
   const { owner, repo } = getRepositoryInfo();
   const branch = getBranch();
-  return { octokit, owner, repo, branch };
+  const effectiveReleaseBranches = releaseBranches.length > 0 ? releaseBranches : [branch];
+  return {
+    octokit,
+    owner,
+    repo,
+    branch,
+    releaseBranches: effectiveReleaseBranches
+  };
 }
 function getGitHubToken() {
   const token = process.env.GITHUB_TOKEN;
@@ -8815,23 +8851,29 @@ var PullRequests = class {
       yield pr;
     }
   }
-  // todo not currently using limit
+  // todo not currently supplying limit
   async collect(limit) {
     return collectAsync(this, limit);
+  }
+  async first() {
+    return collectFirst(this);
   }
 };
 var pullRequestQuery = `
 query(
   $owner: String!
   $repo: String!
-  $baseRefName: String!
+  $baseRefName: String
+  $headRefName: String
+  $state: PullRequestState!
   $perPage: Int!
   $cursor: String
 ) {
   repository(owner: $owner, name: $repo) {
     pullRequests(
       baseRefName: $baseRefName
-      states: MERGED
+      headRefName: $headRefName
+      states: [$state]
       orderBy: { field: UPDATED_AT, direction: DESC }
       first: $perPage
       after: $cursor
@@ -8844,19 +8886,32 @@ query(
         title
         number
         baseRefName
+        state
         mergedAt
-        mergeCommit {
-          oid
-        }
       }
     }
   }
 }
 `;
-function fetchPullRequests(context, mergedSince, perPage) {
-  return new PullRequests(createPullRequestsGenerator(context, mergedSince, perPage));
+function fetchPullRequests(context, params) {
+  if (params.type === "incoming") {
+    return new PullRequests(
+      createPullRequestsGenerator(
+        context,
+        params.baseRefName,
+        null,
+        "MERGED",
+        params.mergedSince,
+        params.perPage
+      )
+    );
+  } else {
+    return new PullRequests(
+      createPullRequestsGenerator(context, null, params.headRefName, "OPEN", null, params.perPage)
+    );
+  }
 }
-async function* createPullRequestsGenerator(context, mergedSince, perPage) {
+async function* createPullRequestsGenerator(context, baseRefName, headRefName, state, mergedSince, perPage) {
   let cursor = null;
   let hasNextPage = true;
   while (hasNextPage) {
@@ -8865,7 +8920,9 @@ async function* createPullRequestsGenerator(context, mergedSince, perPage) {
       {
         owner: context.owner,
         repo: context.repo,
-        baseRefName: context.branch,
+        baseRefName,
+        headRefName,
+        state,
         perPage: perPage ?? DEFAULT_PER_PAGE,
         cursor
       }
@@ -8874,7 +8931,7 @@ async function* createPullRequestsGenerator(context, mergedSince, perPage) {
     const pageInfo = response.repository.pullRequests.pageInfo;
     for (const pr of pulls) {
       const pullRequest = mapPullRequest(pr);
-      if (mergedSince && pullRequest.mergedAt < mergedSince) {
+      if (pullRequest.mergedAt != null && mergedSince && pullRequest.mergedAt < mergedSince) {
         hasNextPage = false;
         break;
       }
@@ -8892,8 +8949,8 @@ function mapPullRequest(apiPR) {
     title: apiPR.title,
     number: apiPR.number,
     baseRefName: apiPR.baseRefName,
-    mergedAt: new Date(apiPR.mergedAt),
-    oid: apiPR.mergeCommit.oid
+    state: apiPR.state,
+    mergedAt: apiPR.state === "MERGED" && apiPR.mergedAt ? new Date(apiPR.mergedAt) : null
   };
 }
 async function collectAsync(source, limit) {
@@ -8905,6 +8962,12 @@ async function collectAsync(source, limit) {
     }
   }
   return result;
+}
+async function collectFirst(source) {
+  for await (const item of source) {
+    return item;
+  }
+  return null;
 }
 
 // src/data/release.ts
@@ -9085,6 +9148,59 @@ function mapRelease2(releaseData) {
   };
 }
 
+// src/versioning/version.ts
+var import_inc = __toESM(require_inc(), 1);
+var import_parse = __toESM(require_parse(), 1);
+function parseVersion(versionString) {
+  const semver = (0, import_parse.default)(versionString, { loose: false });
+  if (semver === null) {
+    throw new Error(`Invalid version: ${versionString}`);
+  }
+  return new Version(
+    `${semver.major}.${semver.minor}.${semver.patch}`,
+    semver.prerelease.map((part) => part.toString()),
+    semver.build
+  );
+}
+var Version = class _Version {
+  /** This supports with or without a "v" prefix. */
+  constructor(base, prerelease = [], build = []) {
+    this.base = base;
+    this.prerelease = prerelease;
+    this.build = build;
+  }
+  get tag() {
+    return `v${this.base}`;
+  }
+  withPrerelease(prerelease) {
+    return new _Version(this.base, prerelease, this.build);
+  }
+  withBuild(build) {
+    return new _Version(this.base, this.prerelease, build);
+  }
+  /**
+   * Note this only bumps the base version, it has no effect on prerelease or build metadata.
+   * The `node-semver` package implements subtle rules here, which are not part of the SemVer spec,
+   * such as not bumping a prerelease on a `patch`, but bumping on `minor`.
+   * For now, we'll keep it simple and intuitive by always bumping the base version.
+   */
+  bump(change) {
+    if (change === "none") {
+      return this;
+    }
+    const next = (0, import_inc.default)(this.base, change);
+    if (next === null) {
+      throw new Error(`Unable to bump version '${this.base}' with change '${change}'`);
+    }
+    return new _Version(next, this.prerelease, this.build);
+  }
+  toString() {
+    const prerelease = this.prerelease.length > 0 ? `-${this.prerelease.join(".")}` : "";
+    const build = this.build.length > 0 ? `+${this.build.join(".")}` : "";
+    return `${this.base}${prerelease}${build}`;
+  }
+};
+
 // src/versioning/conventional-commits.ts
 function messageImpact(message) {
   if (!message || message.trim() === "") {
@@ -9137,80 +9253,108 @@ function inferVersionImpactFromPR(pr) {
   return messageImpact(pr.title);
 }
 
-// src/versioning/versions.ts
-var import_inc = __toESM(require_inc(), 1);
-function bumpTag(versionTag, change, defaultTag) {
-  if (!versionTag) {
-    return checkedVersionTag(defaultTag);
-  }
-  const bare = checkedVersionTag(versionTag).slice(1);
-  const bumped = bump(bare, change);
-  return `v${bumped}`;
-}
-function checkedVersionTag(versionTag) {
-  if (!versionTag.startsWith("v")) {
-    throw new Error(`Invalid version tag: ${versionTag}`);
-  }
-  return versionTag;
-}
-function bump(version, change) {
-  if (change === "none") {
-    return version;
-  }
-  const next = (0, import_inc.default)(version, change);
-  if (!next) {
-    throw new Error(`Invalid version or cannot bump: ${version}`);
-  }
-  return next;
-}
-
 // src/core.ts
-async function upsertDraftRelease(context, defaultTag) {
+function isReleaseBranch(context) {
+  return context.releaseBranches.includes(context.branch);
+}
+async function performAction(context, defaultTag) {
+  if (isReleaseBranch(context)) {
+    return upsertDraftReleaseForReleaseBranch(context, defaultTag);
+  } else {
+    return inferVersionForFeatureBranch(context, defaultTag);
+  }
+}
+async function upsertDraftReleaseForReleaseBranch(context, defaultTag) {
   const releases = fetchReleases(context);
   const lastDraft = await releases.findLastDraft(context.branch);
   const lastRelease = await releases.findLast(context.branch);
+  const lastVersion = lastRelease?.tagName ? parseVersion(lastRelease.tagName) : null;
   const mergedSince = lastRelease?.publishedAt ?? null;
-  const pullRequests = await fetchPullRequests(context, mergedSince).collect();
+  const pullRequests = await fetchPullRequests(context, {
+    type: "incoming",
+    baseRefName: context.branch,
+    mergedSince
+  }).collect();
   if (pullRequests.length === 0) {
     return {
       action: "none",
       lastRelease,
+      lastVersion,
       lastDraft
     };
   }
   const versionIncrement = inferImpactFromPRs(pullRequests);
-  const nextVersion = calculateNextVersion(lastRelease, versionIncrement, defaultTag);
+  const nextVersion = calculateNextVersion(lastVersion, versionIncrement, defaultTag);
   const { release, action } = await performUpsert(context, nextVersion, lastDraft, lastRelease);
   return {
     action,
     lastDraft,
     lastRelease,
+    lastVersion,
     pullRequestTitles: pullRequests.map((pr) => pr.title),
     versionIncrement,
     version: nextVersion,
     release
   };
 }
-function calculateNextVersion(lastRelease, increment, defaultTag) {
-  return bumpTag(lastRelease?.tagName, increment, defaultTag);
+async function inferVersionForFeatureBranch(context, defaultTag) {
+  const featurePR = await fetchPullRequests(context, {
+    type: "outgoing",
+    headRefName: context.branch
+  }).first();
+  if (featurePR === null) {
+    return {
+      action: "none",
+      lastDraft: null,
+      lastRelease: null,
+      lastVersion: null
+    };
+  }
+  const targetBranch = featurePR.baseRefName;
+  const lastRelease = await fetchReleases(context).findLast(targetBranch);
+  const lastVersion = lastRelease?.tagName ? parseVersion(lastRelease.tagName) : null;
+  const mergedPullRequests = await fetchPullRequests(context, {
+    type: "incoming",
+    baseRefName: targetBranch,
+    mergedSince: lastRelease?.publishedAt ?? null
+  }).collect();
+  const prs = [featurePR, ...mergedPullRequests];
+  const titles = prs.map((pr) => pr.title);
+  const versionIncrement = inferImpactFromPRs(prs);
+  const nextVersion = calculateNextVersion(lastVersion, versionIncrement, defaultTag);
+  return {
+    action: "version",
+    lastRelease,
+    lastVersion,
+    pullRequestTitles: titles,
+    versionIncrement,
+    version: nextVersion
+  };
+}
+function calculateNextVersion(lastVersion, increment, defaultTag) {
+  if (lastVersion) {
+    return lastVersion.bump(increment);
+  } else {
+    return parseVersion(defaultTag);
+  }
 }
 async function performUpsert(context, nextVersion, existingDraft, lastRelease) {
   if (existingDraft) {
     const body = await generateReleaseNotes(
       context,
-      nextVersion,
+      nextVersion.tag,
       context.branch,
       lastRelease?.tagName ?? null
     );
     const release = await updateRelease(context, {
       ...existingDraft,
-      name: nextVersion,
-      tagName: nextVersion,
+      name: nextVersion.tag,
+      tagName: nextVersion.tag,
       body
     });
     return { release, action: "updated" };
   } else {
-    const release = await createDraftRelease(context, nextVersion, context.branch, nextVersion);
+    const release = await createDraftRelease(context, nextVersion.tag, context.branch, nextVersion.tag);
     return { release, action: "created" };
   }
 }
@@ -9229,27 +9373,41 @@ async function main() {
 }
 async function run() {
   const defaultTag = getInput("default-tag");
-  const context = createContext();
-  const result = await upsertDraftRelease(context, defaultTag);
+  const releaseBranches = getMultilineInput("release-branches");
+  const context = createContext(releaseBranches);
+  const result = await performAction(context, defaultTag);
   info(`Action Taken: ${result.action}`);
   setOutput("action", result.action);
-  if (result.action === "none") {
-    info("\nNo outstanding PRs found, so a draft release was neither created nor updated");
+  if (result.action === "version") {
+    info("\nFeature branch: Version inference only");
+    logResults(result);
+    outputVersions(result);
+  } else if (result.action === "none") {
+    info("\nRelease branch: Full release management");
+    info("No outstanding PRs found, so a draft release was neither created nor updated");
   } else {
-    info(`Last Release: ${result.lastRelease?.name ?? "(none)"}`);
+    info("\nRelease branch: Full release management");
+    logResults(result);
     info(`Current Draft: ${result.lastDraft?.name ?? "(none)"}`);
-    info(`Pull Requests: 
-${result.pullRequestTitles.map((pr) => `  ${pr}`).join("\n")}`);
-    info(`Version Increment: ${result.versionIncrement}`);
-    info(`Next Version: ${result.version}`);
     info(`Updated Draft: ${result.release.name}
 ${result.release.body}`);
-    if (result.lastRelease?.tagName) {
-      setOutput("last-version", result.lastRelease.tagName);
-    }
-    setOutput("next-version", result.version);
+    outputVersions(result);
     setOutput("release-id", result.release.id);
   }
+}
+function logResults(result) {
+  info(`Last Release: ${result.lastRelease?.name ?? "(none)"}`);
+  info(`Pull Requests: 
+${result.pullRequestTitles.map((pr) => `  ${pr}`).join("\n")}`);
+  info(`Last Version: ${result.lastVersion?.toString() ?? "(none)"}`);
+  info(`Version Increment: ${result.versionIncrement}`);
+  info(`Next Version: ${result.version}`);
+}
+function outputVersions(result) {
+  if (result.lastVersion) {
+    setOutput("last-version", result.lastVersion.toString());
+  }
+  setOutput("next-version", result.version.toString());
 }
 
 // src/index.ts

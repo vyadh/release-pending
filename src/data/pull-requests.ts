@@ -9,9 +9,30 @@ export interface PullRequest {
   title: string
   number: number
   baseRefName: string
-  mergedAt: Date
-  oid: string
+  state: string
+  mergedAt: Date | null
 }
+
+/**
+ * Parameters for fetching incoming pull requests (merged into a branch).
+ */
+export interface IncomingPullRequestsParams {
+  type: "incoming"
+  baseRefName: string
+  mergedSince: Date | null
+  perPage?: number
+}
+
+/**
+ * Parameters for fetching outgoing pull requests (opened from a branch).
+ */
+export interface OutgoingPullRequestsParams {
+  type: "outgoing"
+  headRefName: string
+  perPage?: number
+}
+
+export type FetchPullRequestsParams = IncomingPullRequestsParams | OutgoingPullRequestsParams
 
 /**
  * Represents a collection of GitHub Pull Requests.
@@ -29,9 +50,13 @@ export class PullRequests implements AsyncIterable<PullRequest> {
     }
   }
 
-  // todo not currently using limit
+  // todo not currently supplying limit
   async collect(limit?: number): Promise<PullRequest[]> {
     return collectAsync(this, limit)
+  }
+
+  async first(): Promise<PullRequest | null> {
+    return collectFirst(this)
   }
 }
 
@@ -40,14 +65,17 @@ const pullRequestQuery = `
 query(
   $owner: String!
   $repo: String!
-  $baseRefName: String!
+  $baseRefName: String
+  $headRefName: String
+  $state: PullRequestState!
   $perPage: Int!
   $cursor: String
 ) {
   repository(owner: $owner, name: $repo) {
     pullRequests(
       baseRefName: $baseRefName
-      states: MERGED
+      headRefName: $headRefName
+      states: [$state]
       orderBy: { field: UPDATED_AT, direction: DESC }
       first: $perPage
       after: $cursor
@@ -60,10 +88,8 @@ query(
         title
         number
         baseRefName
+        state
         mergedAt
-        mergeCommit {
-          oid
-        }
       }
     }
   }
@@ -73,17 +99,35 @@ query(
 /**
  * Fetch GitHub pull requests using GraphQL API with lazy pagination.
  * Only fetches more pages when needed.
+ *
+ * For incoming PRs (merged into a branch): fetches MERGED PRs
+ * For outgoing PRs (opened from a branch): fetches OPEN PRs
  */
-export function fetchPullRequests(
-  context: Context,
-  mergedSince: Date | null,
-  perPage?: number
-): PullRequests {
-  return new PullRequests(createPullRequestsGenerator(context, mergedSince, perPage))
+export function fetchPullRequests(context: Context, params: FetchPullRequestsParams): PullRequests {
+  if (params.type === "incoming") {
+    return new PullRequests(
+      createPullRequestsGenerator(
+        context,
+        params.baseRefName,
+        null,
+        "MERGED",
+        params.mergedSince,
+        params.perPage
+      )
+    )
+  } else {
+    // outgoing
+    return new PullRequests(
+      createPullRequestsGenerator(context, null, params.headRefName, "OPEN", null, params.perPage)
+    )
+  }
 }
 
 async function* createPullRequestsGenerator(
   context: Context,
+  baseRefName: string | null,
+  headRefName: string | null,
+  state: string,
   mergedSince: Date | null,
   perPage?: number
 ): AsyncGenerator<PullRequest, void, undefined> {
@@ -96,9 +140,11 @@ async function* createPullRequestsGenerator(
       {
         owner: context.owner,
         repo: context.repo,
-        baseRefName: context.branch,
+        baseRefName: baseRefName,
+        headRefName: headRefName,
+        state: state,
         perPage: perPage ?? DEFAULT_PER_PAGE,
-        cursor
+        cursor: cursor
       }
     )
 
@@ -107,7 +153,7 @@ async function* createPullRequestsGenerator(
 
     for (const pr of pulls) {
       const pullRequest = mapPullRequest(pr)
-      if (mergedSince && pullRequest.mergedAt < mergedSince) {
+      if (pullRequest.mergedAt != null && mergedSince && pullRequest.mergedAt < mergedSince) {
         // PRs are ordered by UPDATED_AT DESC. We can infer that all subsequent PRs will have an
         // updated date same or greater than their merged date. Therefore, we can stop pagination
         // for PRs merged before our selected merge date.
@@ -143,8 +189,8 @@ interface PullRequestNode {
   title: string
   number: number
   baseRefName: string
-  mergedAt: string
-  mergeCommit: { oid: string }
+  state: string
+  mergedAt: string | null
 }
 
 /**
@@ -155,8 +201,8 @@ function mapPullRequest(apiPR: PullRequestNode): PullRequest {
     title: apiPR.title,
     number: apiPR.number,
     baseRefName: apiPR.baseRefName,
-    mergedAt: new Date(apiPR.mergedAt),
-    oid: apiPR.mergeCommit.oid
+    state: apiPR.state,
+    mergedAt: apiPR.state === "MERGED" && apiPR.mergedAt ? new Date(apiPR.mergedAt) : null
   }
 }
 
@@ -170,4 +216,11 @@ async function collectAsync<T>(source: AsyncIterable<T>, limit?: number): Promis
     }
   }
   return result
+}
+async function collectFirst<T>(source: AsyncIterable<T>): Promise<T | null> {
+  // noinspection LoopStatementThatDoesntLoopJS
+  for await (const item of source) {
+    return item
+  }
+  return null
 }

@@ -16,7 +16,8 @@ describe("Octomock", () => {
       octokit: octomock.octokit,
       owner: "test-owner",
       repo: "test-repo",
-      branch: "main"
+      branch: "main",
+      releaseBranches: ["main"]
     }
   })
 
@@ -416,5 +417,10 @@ async function collectReleases(context: Context, perPage?: number) {
 }
 
 async function collectPullRequests(context: Context, mergedSince: Date | null, perPage?: number) {
-  return fetchPullRequests(context, mergedSince, perPage).collect()
+  return fetchPullRequests(context, {
+    type: "incoming",
+    baseRefName: context.branch,
+    mergedSince: mergedSince,
+    perPage: perPage
+  }).collect()
 }
