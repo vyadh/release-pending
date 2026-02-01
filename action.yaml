@@ -22,6 +22,8 @@ outputs:
     description: If a previous release was found, this is its version.
   next-version:
     description: The inferred or determined new version for the release.
+  next-version-full:
+    description: The next semver version, including pre-release and build metadata.
   release-id:
     description: The numeric identifier of the created or updated release.
 

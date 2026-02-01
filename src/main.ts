@@ -47,12 +47,13 @@ function logResults(result: VersionInferenceResult | UpsertedReleaseResult) {
   info(`Pull Requests: \n${result.pullRequestTitles.map((pr) => `  ${pr}`).join("\n")}`)
   info(`Last Version: ${result.lastVersion?.toString() ?? "(none)"}`)
   info(`Version Increment: ${result.versionIncrement}`)
-  info(`Next Version: ${result.version}`)
+  info(`Next Version: ${result.version.core} (${result.version})`)
 }
 
 function outputVersions(result: VersionInferenceResult | UpsertedReleaseResult) {
   if (result.lastVersion) {
     setOutput("last-version", result.lastVersion.toString())
   }
-  setOutput("next-version", result.version.toString())
+  setOutput("next-version", result.version.core)
+  setOutput("next-version-full", result.version.toString())
 }

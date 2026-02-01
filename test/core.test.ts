@@ -689,7 +689,7 @@ describe("performAction on feature branch", () => {
 
       expect(result.action).toBe("version")
       if (result.action === "version") {
-        expect(result.version.toString()).toBe("1.1.0")
+        expect(result.version.toString()).toBe("1.1.0-branch.feature.my-feature")
         expect(result.versionIncrement).toBe("minor")
         expect(result.pullRequestTitles).toEqual(["feat: add new feature"])
         expect(result.lastRelease?.tagName).toBe("v1.0.0")
@@ -726,7 +726,7 @@ describe("performAction on feature branch", () => {
 
       // Should bump from v1.0.0 (main branch), not v2.0.0 (develop branch)
       if (result.action === "version") {
-        expect(result.version.toString()).toBe("1.0.1")
+        expect(result.version.toString()).toBe("1.0.1-branch.feature.my-feature")
         expect(result.lastRelease?.tagName).toBe("v1.0.0")
       }
     })
@@ -744,7 +744,7 @@ describe("performAction on feature branch", () => {
       const result = await performAction(context, "v0.1.0")
 
       if (result.action === "version") {
-        expect(result.version.toString()).toBe("0.1.0")
+        expect(result.version.toString()).toBe("0.1.0-branch.feature.my-feature")
         expect(result.lastRelease).toBeNull()
       }
     })
@@ -781,7 +781,7 @@ describe("performAction on feature branch", () => {
       // Should be minor because of the merged feat PR
       if (result.action === "version") {
         expect(result.versionIncrement).toBe("minor")
-        expect(result.version.toString()).toBe("1.1.0")
+        expect(result.version.toString()).toBe("1.1.0-branch.feature.my-feature")
       }
     })
   })

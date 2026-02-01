@@ -78,6 +78,7 @@ Note also that `contents: write` is required to read non-public(?) draft release
 - `action`: The action taken by the release process.
 - `last-version`: The last release that the version was calculated from.
 - `next-version`: The inferred or determined version for the release.
+- `next-version-full`: The full semver version, including prerelease and build information.
 - `release-id`: The numeric identifier of the created or updated release.
 
 

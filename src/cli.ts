@@ -65,7 +65,7 @@ async function run(octokit: Octokit, args: string[]) {
     info(`Last Release: ${result.lastRelease?.name ?? "(none)"}`)
     info(`Pull Requests: \n${result.pullRequestTitles.map((pr) => `  ${pr}`).join("\n")}`)
     info(`Version Increment: ${result.versionIncrement}`)
-    info(`Next Version: ${result.version}`)
+    info(`Next Version: ${result.version.core} (${result.version})`)
     info(`Branch Type: feature (no draft release created/updated)`)
   } else {
     info(`Last Release: ${result.lastRelease?.name ?? "(none)"}`)
