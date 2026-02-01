@@ -1,4 +1,5 @@
-import {SemVer} from "semver";
+import {inc} from "semver";
+import {parse as parseSemVer} from "semver";
 
 /** Which part of the version to increment, or "none" to leave unchanged. */
 export type VersionIncrement = VersionComponent | "none"
@@ -6,44 +7,44 @@ export type VersionIncrement = VersionComponent | "none"
 /** The part of the version to increment as understood by `semver` library. */
 export type VersionComponent = "major" | "minor" | "patch"
 
-export function parse(version: string): Version {
-  return new Version(new SemVer(version, {loose: false}))
+export function parse(versionString: string): Version {
+  const semver = parseSemVer(versionString, { loose: false })
+  if (semver === null) {
+    throw new Error(`Invalid version: ${versionString}`)
+  }
+  return new Version(
+    `${semver.major}.${semver.minor}.${semver.patch}`,
+    semver.prerelease.length > 0 ? semver.prerelease.join(".") : null,
+    semver.build
+  )
 }
 
 /**
- * The SemVer class has odd behavior. This class preserves
- * the information and provides a consistent toString() method.
+ * The SemVer class has odd behavior as well as bloats the bundle with unnecessary code.
+ * This class preserves the information and provides a consistent toString() method.
  */
 export class Version {
-  private readonly semver: SemVer
+  readonly base: string
+  readonly prerelease: string | null
+  readonly build: readonly string[]
 
   /** This supports with or without a "v" prefix. */
-  constructor(semver: SemVer) {
-    this.semver = semver
-  }
-
-  get base(): string {
-    return `${this.semver.major}.${this.semver.minor}.${this.semver.patch}`
+  constructor(base: string, prerelease: string | null = null, build: readonly string[] = []) {
+    this.base = base
+    this.prerelease = prerelease
+    this.build = build
   }
 
   get tag(): string {
     return `v${this.base}`
   }
 
-  get prerelease(): string | null {
-    return this.semver.prerelease.length === 0 ? null : String(this.semver.prerelease[0])
+  withPrerelease(prerelease: string | null): Version {
+    return new Version(this.base, prerelease, this.build)
   }
 
-  set prerelease(components: string) {
-    this.semver.prerelease = [components]
-  }
-
-  get build(): readonly string[] {
-    return this.semver.build
-  }
-
-  set build(components: readonly string[]) {
-    this.semver.build = components
+  withBuild(build: readonly string[]): Version {
+    return new Version(this.base, this.prerelease, build)
   }
 
   bump(change: VersionIncrement): Version {
@@ -51,22 +52,13 @@ export class Version {
       return this
     }
 
-    const next = this.copy()
-    next.semver.inc(change)
-    return next
-  }
-
-  copy(): Version {
-    const result = new SemVer(this.semver.version, {loose: false})
-    return new Version(result)
+    const next = inc(this.base, change)
+    return new Version(next ?? this.base, this.prerelease, this.build)
   }
 
   toString(): string {
-    if (this.semver.build.length > 0) {
-      const build = this.semver.build.join(".")
-      return `${this.semver.format()}+${build}`
-    } else {
-      return this.semver.format()
-    }
+    const prerelease = this.prerelease ? `-${this.prerelease}` : ""
+    const build = this.build.length > 0 ? `+${this.build.join(".")}` : ""
+    return `${this.base}${prerelease}${build}`
   }
 }

@@ -7,11 +7,17 @@ describe("basic version parsing", () => {
   })
 
   it("should parse standard version", () => {
-    expect(parse("2.3.4").toString()).toBe("2.3.4")
+    let version = parse("2.3.4");
+
+    expect(version.toString()).toBe("2.3.4")
+    expect(version.base).toBe("2.3.4")
+    expect(version.build).toStrictEqual([])
+    expect(version.prerelease).toBe(null)
   })
 
   it("should parse full version", () => {
-    let version = parse("2.3.4-alpha+build.number");
+    const version = parse("2.3.4-alpha+build.number");
+
     expect(version.toString()).toBe("2.3.4-alpha+build.number")
     expect(version.base).toBe("2.3.4")
     expect(version.prerelease).toBe("alpha")
@@ -19,17 +25,15 @@ describe("basic version parsing", () => {
   })
 
   it("should error on invalid version", () => {
-    expect(() => parse("")).toThrow("Invalid Version: ")
-    expect(() => parse("1.b.3")).toThrow("Invalid Version: 1.b.3")
-    expect(() => parse("1.2.3.4")).toThrow("Invalid Version: 1.2.3.4")
+    expect(() => parse("")).toThrow("Invalid version: ")
+    expect(() => parse("1.b.3")).toThrow("Invalid version: 1.b.3")
+    expect(() => parse("1.2.3.4")).toThrow("Invalid version: 1.2.3.4")
   })
 })
 
 describe("prereleases", () => {
   it("should format version with prerelease", () => {
-    let version = parse("1.0.0")
-
-    version.prerelease = "pre"
+    const version = parse("1.0.0").withPrerelease("pre")
 
     expect(version.prerelease).toBe("pre")
     expect(version.toString()).toBe("1.0.0-pre")
@@ -38,20 +42,16 @@ describe("prereleases", () => {
 
 describe("builds", () => {
   it("should format version with build", () => {
-    let version = parse("1.0.0")
-    expect(version.build).toStrictEqual([])
-
-    version.build = ["a", "b", "c"]
+    const version = parse("1.0.0").withBuild(["a", "b", "c"])
     expect(version.toString()).toBe("1.0.0+a.b.c")
   })
 })
 
 describe("combined prerelease and build", () => {
   it("should format version with prerelease and build", () => {
-    let version = parse("2.1.1")
-
-    version.prerelease = "beta"
-    version.build = ["a", "b", "c"]
+    const version = parse("2.1.1")
+        .withPrerelease("beta")
+        .withBuild(["a", "b", "c"])
 
     expect(version.toString()).toBe("2.1.1-beta+a.b.c")
   })
