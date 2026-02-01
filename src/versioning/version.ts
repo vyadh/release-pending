@@ -13,7 +13,7 @@ export function parse(versionString: string): Version {
   }
   return new Version(
     `${semver.major}.${semver.minor}.${semver.patch}`,
-    semver.prerelease.length > 0 ? semver.prerelease.join(".") : null,
+    semver.prerelease.map((part) => part.toString()),
     semver.build
   )
 }
@@ -24,11 +24,11 @@ export function parse(versionString: string): Version {
  */
 export class Version {
   readonly base: string
-  readonly prerelease: string | null
+  readonly prerelease: readonly string[]
   readonly build: readonly string[]
 
   /** This supports with or without a "v" prefix. */
-  constructor(base: string, prerelease: string | null = null, build: readonly string[] = []) {
+  constructor(base: string, prerelease: readonly string[] = [], build: readonly string[] = []) {
     this.base = base
     this.prerelease = prerelease
     this.build = build
@@ -38,7 +38,7 @@ export class Version {
     return `v${this.base}`
   }
 
-  withPrerelease(prerelease: string | null): Version {
+  withPrerelease(prerelease: string[]): Version {
     return new Version(this.base, prerelease, this.build)
   }
 
@@ -46,17 +46,27 @@ export class Version {
     return new Version(this.base, this.prerelease, build)
   }
 
+  /**
+   * Note this only bumps the base version, it has no effect on prerelease or build metadata.
+   * The `node-semver` package implements subtle rules here, which are not part of the SemVer spec,
+   * such as not bumping a prerelease on a `patch`, but bumping on `minor`.
+   * For now, we'll keep it simple and intuitive by always bumping the base version.
+   */
   bump(change: VersionIncrement): Version {
     if (change === "none") {
       return this
     }
 
     const next = inc(this.base, change)
-    return new Version(next ?? this.base, this.prerelease, this.build)
+    if (next === null) {
+      // Since the version is validated in parse(), this shouldn't happen
+      throw new Error(`Unable to bump version '${this.base}' with change '${change}'`)
+    }
+    return new Version(next, this.prerelease, this.build)
   }
 
   toString(): string {
-    const prerelease = this.prerelease ? `-${this.prerelease}` : ""
+    const prerelease = this.prerelease.length > 0 ? `-${this.prerelease.join(".")}` : ""
     const build = this.build.length > 0 ? `+${this.build.join(".")}` : ""
     return `${this.base}${prerelease}${build}`
   }

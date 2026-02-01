@@ -12,15 +12,15 @@ describe("basic version parsing", () => {
     expect(version.toString()).toBe("2.3.4")
     expect(version.base).toBe("2.3.4")
     expect(version.build).toStrictEqual([])
-    expect(version.prerelease).toBe(null)
+    expect(version.prerelease).toStrictEqual([])
   })
 
   it("should parse full version", () => {
-    const version = parse("2.3.4-alpha+build.number")
+    const version = parse("2.3.4-alpha.1+build.number")
 
-    expect(version.toString()).toBe("2.3.4-alpha+build.number")
+    expect(version.toString()).toBe("2.3.4-alpha.1+build.number")
     expect(version.base).toBe("2.3.4")
-    expect(version.prerelease).toBe("alpha")
+    expect(version.prerelease).toStrictEqual(["alpha", "1"])
     expect(version.build).toStrictEqual(["build", "number"])
   })
 
@@ -33,10 +33,10 @@ describe("basic version parsing", () => {
 
 describe("prereleases", () => {
   it("should format version with prerelease", () => {
-    const version = parse("1.0.0").withPrerelease("pre")
+    const version = parse("1.0.0").withPrerelease(["pre", "2"])
 
-    expect(version.prerelease).toBe("pre")
-    expect(version.toString()).toBe("1.0.0-pre")
+    expect(version.prerelease).toStrictEqual(["pre", "2"])
+    expect(version.toString()).toBe("1.0.0-pre.2")
   })
 })
 
@@ -49,7 +49,7 @@ describe("builds", () => {
 
 describe("combined prerelease and build", () => {
   it("should format version with prerelease and build", () => {
-    const version = parse("2.1.1").withPrerelease("beta").withBuild(["a", "b", "c"])
+    const version = parse("2.1.1").withPrerelease(["beta"]).withBuild(["a", "b", "c"])
 
     expect(version.toString()).toBe("2.1.1-beta+a.b.c")
   })
@@ -86,7 +86,9 @@ describe("bump", () => {
     expect(parse("v1.2.3").bump("none").toString()).toBe("1.2.3")
   })
 
-  it("should lose prerelease but not build on bump", () => {
-    expect(parse("1.2.3").bump("none").toString()).toBe("1.2.3")
+  it("should retain prerelease and build on bump", () => {
+    const version = parse("1.2.3").withPrerelease(["alpha", "1"]).withBuild(["build", "001"])
+
+    expect(version.bump("patch").toString()).toBe("1.2.4-alpha.1+build.001")
   })
 })
