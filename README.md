@@ -3,18 +3,15 @@
 A GitHub Action for release and version management. Maintains GitHub releases and generates version numbers without a full clone.
 
 
-## Current Status
-
-🚧 This action is under active development. 🚧
-
-
 ## Features
 
-- Maintains a GitHub draft release of the pull requests since the last release.
-- Allows curation of a draft for any branch to be released by utilising GitHub's concept of a `target_commitish`, linking branch and draft release.
+- Maintains a draft GitHub Release inferred from the pull requests since the last release.
+- Curates the draft for any branch to be released by utilising GitHub's concept of a `target_commitish`, linking branch with the draft release.
 - Uses GitHub's own release notes generator allowing use of [standard release note templates](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes).
 - Infers version from pull request titles in conventional commits style.
 - Supports versioning feature branches when there is an outgoing pull request to a release branch.
+- Outputs core version such as `1.2.3` and full semver version such as `1.2.3-branch.fix.something+42.2` for a feature branch.
+- Utilises GitHub run number and attempt for semver build metadata.
 
 
 ## Design Goals
@@ -22,7 +19,7 @@ A GitHub Action for release and version management. Maintains GitHub releases an
 - Minimal dependencies, the only direct dependencies being [octokit](https://github.com/octokit/octokit.js) and [semver](https://github.com/npm/node-semver).
 - Use the GitHub REST and GraphQL APIs efficiently to minimise API calls.
 - Transparent operation, indicating information used to reach versioning/release decisions.
-- Limit commit history walking, local or via the API, making it suitable for large repositories.
+- No full clone required or history walking via the API, making it suitable for large repositories.
 
 
 ## Requirements
@@ -39,21 +36,27 @@ All changes happen through PRs. Direct pushes will not be used in version infere
 
 In order to keep the GitHub API calls to a minimum for version number generation, this action queries the GitHub API for PRs merged since the last release rather than walking the full commit graph, as this can be very slow even with GraphQL-based query.
 
-This means that any higher level release PR that merges another branch, constituting multiple PRs into the branch being released, should contain a PR conventional commits title that reflects the overall change to infer the correct version bump. This can be amended on the merge PR and an action that re-runs the action if needed.
+This means that any higher level release PR that merges another branch, constituting multiple PRs into the branch being released, should contain a PR conventional commits title that reflects the overall change to infer the correct version bump. This can be amended on the merge PR, and the action can be re-run if needed.
 
 Release notes are not affected by this as it is delegated to GitHub.
 
 
 ## How does it work?
 
-Very specifically, assuming a specific branch is being operated on, the action:
-
+For a release branch, the action:
 1. Finds the latest non-draft release for the current branch. This is considered the previous release.
 2. Finds all the PRs merged to the branch since the previous release.
 3. Infers a version bump based on PR titles in conventional commit style.
 4. Finds the last draft release for this branch (using `target_commitish`).
    - If a release exists, update it with the new version and release notes.
    - If no release exists, creates a new draft release with the new version.
+
+For a feature branch with an open PR to a release branch, the action:
+1. Finds the latest non-draft release for the target branch of the PR. This is considered the previous release.
+2. Finds all the PRs merged to the target branch since the previous release, plus the current PR.
+3. Infers a version bump based on PR titles in conventional commit style.
+4. Updates no releases.
+5. Outputs the inferred version for use in the workflow.
 
 Release notes are generated using GitHub's release notes generator. This can be customised by a `.github/release.yaml` file. See [GitHub docs here](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes#configuring-automatically-generated-release-notes) for more information.
 
@@ -65,26 +68,55 @@ In order to read and write releases, this action requires:
 - `contents: write`
 - `pull-requests: read`
 
-Note also that `contents: write` is required to read non-public(?) draft releases.
+Note: `contents: write` may be required to read draft releases.
+
+
+## Usage
+
+### Basic Example
+
+Maintain releases when run on release branches.
+
+```yaml
+uses: vyadh/release-party@v1
+```
+
+### Extended Example
+
+Customise the default tag and allow additionally running against feature branches to get a pre-release version.
+
+```yaml
+- uses: vyadh/release-party@v1
+  with:
+    default-tag: v0.1.0
+    release-branches: |
+      main
+      stable
+```
 
 
 ## Inputs
 
-- `default-tag` (required): The tag to use for the release if no prior release is found. Defaults to `v0.0.0`.
+- `default-tag` (optional): The tag to use for the release if no prior release is found. Defaults to `v0.0.0`.
+- `release-branches` (optional): A list of branches that are considered release branches. If not specified, assumes the action will only be run on a release branch.
 
 
 ## Outputs
 
 - `action`: The action taken by the release process.
-- `last-version`: The last release that the version was calculated from.
+- `last-version`: The last release that the version was calculated from, if found.
 - `next-version`: The inferred or determined version for the release.
 - `next-version-full`: The full semver version, including prerelease and build information.
-- `release-id`: The numeric identifier of the created or updated release.
+- `release-id`: The numeric identifier of the created or updated release, if applicable.
 
+The `action` may be one of the following:
+- `none`: No PRs found since last release, no action taken.
+- `created` or `updated`: A draft release was "upserted" as appropriate.
+- `version`: Only version inference was performed, no release created or updated. This happens when running on a feature branch when there is an open PR to a release branch.
 
 ## Proxy Support
 
-Since Node 24+ supports a proxy natively but is not enabled by default. It cannot be enabled internally to this action, but can be enabled by setting `NODE_USE_ENV_PROXY=1` on the GitHub runner or an environment variable in the workflow that calls the action. See [Node.js docs](https://nodejs.org/api/cli.html#node_use_env_proxy1) for more information.
+Since Node 24+ supports a proxy natively but is not enabled by default, it cannot be enabled within this action. However, it can be enabled by setting `NODE_USE_ENV_PROXY=1` on the GitHub runner or in an environment variable within the workflow that calls the action. See [Node.js docs](https://nodejs.org/api/cli.html#node_use_env_proxy1) for more information.
 
 
 ## Comparisons with Other Tools

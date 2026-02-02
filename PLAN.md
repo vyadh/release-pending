@@ -2,16 +2,13 @@
 
 Roadmap for the project and ideas for future enhancements.
 
-## Initial Version
+## Next Version
 
-- In all cases, offer a fully populated semver version output with build number from GitHub run and attempt.
+- Allow release branch patterns, such as `release/*.
+- Allow operating in both a "Continuous Delivery" mode that maintains draft releases on tracked branches, prerelease versions on untracked branches, and a "Managed Release" mode that creates final releases on tracked branches (promoting any user drafts), prerelease versions on untracked branches.
 
 
 ## Future
-
-### Create Final Releases
-
-- Allow operating in both a "Continuous Delivery" mode that maintains draft releases on tracked branches, prerelease versions on untracked branches, and a "Managed Release" mode that creates final releases on tracked branches (promoting any user drafts), prerelease versions on untracked branches.
 
 ### Version Inference
 
