@@ -17,7 +17,9 @@ describe("Octomock", () => {
       owner: "test-owner",
       repo: "test-repo",
       branch: "main",
-      releaseBranches: ["main"]
+      releaseBranches: ["main"],
+      runNumber: "1",
+      runAttempt: "1"
     }
   })
 

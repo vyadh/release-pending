@@ -16,7 +16,9 @@ describe("fetchReleases", () => {
       owner: "test-owner",
       repo: "test-repo",
       branch: "main",
-      releaseBranches: ["main"]
+      releaseBranches: ["main"],
+      runNumber: "1",
+      runAttempt: "1"
     }
   })
 
@@ -129,7 +131,9 @@ describe("find", () => {
       owner: "test-owner",
       repo: "test-repo",
       branch: "main",
-      releaseBranches: ["main"]
+      releaseBranches: ["main"],
+      runNumber: "1",
+      runAttempt: "1"
     }
   })
 
@@ -172,7 +176,9 @@ describe("findLast", () => {
       owner: "test-owner",
       repo: "test-repo",
       branch: "main",
-      releaseBranches: ["main"]
+      releaseBranches: ["main"],
+      runNumber: "1",
+      runAttempt: "1"
     }
   })
 
@@ -312,7 +318,9 @@ describe("findLastDraft", () => {
       owner: "test-owner",
       repo: "test-repo",
       branch: "main",
-      releaseBranches: ["main"]
+      releaseBranches: ["main"],
+      runNumber: "1",
+      runAttempt: "1"
     }
   })
 

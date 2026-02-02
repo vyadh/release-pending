@@ -7,7 +7,9 @@ vi.mock("@/context", () => ({
     owner: "test-owner",
     repo: "test-repo",
     branch: "main",
-    releaseBranches: ["main"]
+    releaseBranches: ["main"],
+    runNumber: "1",
+    runAttempt: "1"
   })
 }))
 
@@ -77,7 +79,9 @@ describe("main", () => {
         octokit: {},
         owner: "test-owner",
         repo: "test-repo",
-        releaseBranches: ["main"]
+        releaseBranches: ["main"],
+        runNumber: "1",
+        runAttempt: "1"
       },
       "v0.1.0"
     )
@@ -211,7 +215,9 @@ describe("main", () => {
         owner: "test-owner",
         repo: "test-repo",
         branch: "feature",
-        releaseBranches: ["main"]
+        releaseBranches: ["main"],
+        runNumber: "1",
+        runAttempt: "1"
       }
     })
 

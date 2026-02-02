@@ -98,7 +98,7 @@ async function upsertDraftReleaseForReleaseBranch(
   }
 
   const versionIncrement = inferImpactFromPRs(pullRequests)
-  const nextVersion = inferNextVersion(lastVersion, versionIncrement, defaultTag)
+  const nextVersion = inferNextVersion(lastVersion, versionIncrement, context, defaultTag)
 
   const { release, action } = await performUpsert(context, nextVersion, lastDraft, lastRelease)
 
@@ -147,7 +147,7 @@ async function inferVersionForFeatureBranch(context: Context, defaultTag: string
   const prs = [featurePR, ...mergedPullRequests]
   const titles = prs.map((pr) => pr.title)
   const versionIncrement = inferImpactFromPRs(prs)
-  const nextVersion = inferNextVersion(lastVersion, versionIncrement, defaultTag, context.branch)
+  const nextVersion = inferNextVersion(lastVersion, versionIncrement, context, defaultTag, context.branch)
 
   return {
     action: "version",
@@ -162,11 +162,13 @@ async function inferVersionForFeatureBranch(context: Context, defaultTag: string
 function inferNextVersion(
   lastVersion: Version | null,
   increment: VersionIncrement,
+  context: Context,
   defaultTag: string,
   branchIfFeature: string | null = null
 ): Version {
-  const next = lastVersion ? lastVersion.bump(increment) : parseVersion(defaultTag)
-  return branchIfFeature ? next.withPrerelease(sanitiseBranchPrerelease(branchIfFeature)) : next
+  return (lastVersion ? lastVersion.bump(increment) : parseVersion(defaultTag))
+    .withPrerelease(branchIfFeature ? sanitiseBranchPrerelease(branchIfFeature) : [])
+    .withBuild([context.runNumber, context.runAttempt])
 }
 
 async function performUpsert(

@@ -55,7 +55,9 @@ async function run(octokit: Octokit, args: string[]) {
     owner: owner,
     repo: repo,
     branch: branch,
-    releaseBranches: [releaseBranch]
+    releaseBranches: [releaseBranch],
+    runNumber: "1",
+    runAttempt: "1"
   }
   const result = await performAction(context, defaultTag)
 
@@ -90,7 +92,9 @@ async function showReleases(octokit: Octokit, args: string[]) {
       owner: owner,
       repo: repo,
       branch: "placeholder",
-      releaseBranches: []
+      releaseBranches: [],
+      runNumber: "1",
+      runAttempt: "1"
     }
     const releases = fetchReleases(context)
 
@@ -124,7 +128,9 @@ async function showPullRequests(octokit: Octokit, args: string[]) {
       owner: owner,
       repo: repo,
       branch: branch,
-      releaseBranches: []
+      releaseBranches: [],
+      runNumber: "1",
+      runAttempt: "1"
     }
 
     const operation: FetchPullRequestsParams =
