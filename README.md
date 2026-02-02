@@ -6,12 +6,10 @@ A GitHub Action for release and version management. Maintains GitHub releases an
 ## Features
 
 - Maintains a draft GitHub Release inferred from the pull requests since the last release.
-- Curates the draft for any branch to be released by utilising GitHub's concept of a `target_commitish`, linking branch with the draft release.
-- Uses GitHub's own release notes generator allowing use of [standard release note templates](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes).
-- Infers version from pull request titles in conventional commits style.
+- Uses GitHub's release notes generator allowing use of [standard release note templates](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes).
+- Infers next version from pull request titles in conventional commits style.
 - Supports versioning feature branches when there is an outgoing pull request to a release branch.
-- Outputs core version such as `1.2.3` and full semver version such as `1.2.3-branch.fix.something+42.2` for a feature branch.
-- Utilises GitHub run number and attempt for semver build metadata.
+- Outputs version numbers that optionally include prerelease and build numbers.
 
 
 ## Design Goals
@@ -43,22 +41,7 @@ Release notes are not affected by this as it is delegated to GitHub.
 
 ## How does it work?
 
-For a release branch, the action:
-1. Finds the latest non-draft release for the current branch. This is considered the previous release.
-2. Finds all the PRs merged to the branch since the previous release.
-3. Infers a version bump based on PR titles in conventional commit style.
-4. Finds the last draft release for this branch (using `target_commitish`).
-   - If a release exists, update it with the new version and release notes.
-   - If no release exists, creates a new draft release with the new version.
-
-For a feature branch with an open PR to a release branch, the action:
-1. Finds the latest non-draft release for the target branch of the PR. This is considered the previous release.
-2. Finds all the PRs merged to the target branch since the previous release, plus the current PR.
-3. Infers a version bump based on PR titles in conventional commit style.
-4. Updates no releases.
-5. Outputs the inferred version for use in the workflow.
-
-Release notes are generated using GitHub's release notes generator. This can be customised by a `.github/release.yaml` file. See [GitHub docs here](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes#configuring-automatically-generated-release-notes) for more information.
+See [operation docs](docs/operation.md) for a detailed explanation of how this action works.
 
 
 ## Permissions
@@ -109,30 +92,16 @@ Customise the default tag and allow additionally running against feature branche
 - `next-version-full`: The full semver version, including prerelease and build information.
 - `release-id`: The numeric identifier of the created or updated release, if applicable.
 
-The `action` may be one of the following:
+Output `action` may be one of the following:
 - `none`: No PRs found since last release, no action taken.
 - `created` or `updated`: A draft release was "upserted" as appropriate.
 - `version`: Only version inference was performed, no release created or updated. This happens when running on a feature branch when there is an open PR to a release branch.
 
+Output `next-version` will be the core version number such as `1.2.3`.
+
+Output `next-version-full` is the full semver information, such as `1.2.3+42.2` when running on a release branch (`+<run numer>.<run-attempt>`), or `1.2.3-branch.fix.something+42.2`, populating a sanitised form of the branch name on a feature branch.
+
+
 ## Proxy Support
 
 Since Node 24+ supports a proxy natively but is not enabled by default, it cannot be enabled within this action. However, it can be enabled by setting `NODE_USE_ENV_PROXY=1` on the GitHub runner or in an environment variable within the workflow that calls the action. See [Node.js docs](https://nodejs.org/api/cli.html#node_use_env_proxy1) for more information.
-
-
-## Comparisons with Other Tools
-
-[Release Drafter](https://github.com/release-drafter/release-drafter) - This action was born out of an attempt to adopt this action, but it appeared unmaintained at the time this action's basic functionality was completed, though it is now active again so if you want functionality-rich solution and are happy to use labels for versioning, Release Drafter is a good choice. The main differences are:
-- Release Drafter relies on PR labels to determine version bumps, whereas Release Party infers from PR titles expressed in conventional commits style.
-- Release Party benefits from a smaller attack surface due to minimal dependencies.
-
-[Semantic Release](https://github.com/semantic-release/semantic-release) is a comprehensive and well maintained toolkit for release and version generation that works with the commit history to generate versions. Release Party in contrast:
-- Is intended to run against any branch so it relies on PR titles and branch names.
-- Suitable for projects/organisations that do not universally adopt conventional commits.
-- Release Party benefits from a smaller attack surface due to minimal dependencies.
-
-[Release Please](https://github.com/googleapis/release-please) is useful when version numbers in a repository are updated as part of a release, particularly convenient for ecosystems it directly supports. It makes use of release PRs, which seems a powerful and flexible approach. Release Party in contrast:
-- Is aimed more at projects that prefer to keep version numbers out of the codebase where a release PR would be redundant.
-- Infers version bumps from PR titles rather than commits.
-- Release Party benefits from a smaller attack surface due to minimal dependencies.
-
-Versioning tools like [GitVersion](https://gitversion.net) and [Cocogitto](https://docs.cocogitto.io) avoid dependencies on GitHub, but they also require a full clone of the repository, which is best avoided for big repositories.
