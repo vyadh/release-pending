@@ -22,14 +22,15 @@ export interface Context {
  * - GITHUB_RUN_NUMBER: Unique number for each workflow run
  * - GITHUB_RUN_ATTEMPT: Unique number for each attempt of a workflow run
  *
+ * @param targetBranch - Optional target branch name to override GITHUB_REF / GITHUB_REF_NAME.
  * @param releaseBranches - Optional list of release branch names. If empty, the current branch is used.
  * @throws {Error} If required environment variables are missing or invalid
  */
-export function createContext(releaseBranches: string[] = []): Context {
+export function createContext(targetBranch: string = "", releaseBranches: string[] = []): Context {
   const token = getGitHubToken()
   const octokit = createOctokit({ auth: token })
   const { owner, repo } = getRepositoryInfo()
-  const branch = getBranch()
+  const branch = getBranch(targetBranch)
   const effectiveReleaseBranches = releaseBranches.length > 0 ? releaseBranches : [branch]
   const runNumber = getRunNumber()
   const runAttempt = getRunAttempt()
@@ -65,7 +66,12 @@ function getRepositoryInfo(): { owner: string; repo: string } {
   return { owner: owner, repo: repo }
 }
 
-function getBranch(): string {
+function getBranch(targetBranch: string): string {
+  // Use target branch if provided
+  if (targetBranch) {
+    return targetBranch
+  }
+
   // GITHUB_REF format: refs/heads/branch-name or refs/tags/tag-name
   const ref = process.env.GITHUB_REF
   if (!ref) {

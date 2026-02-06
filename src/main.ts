@@ -16,8 +16,9 @@ export async function main() {
 
 async function run() {
   const defaultTag = getInput("default-tag")
+  const targetBranch = getInput("target-branch")
   const releaseBranches = getMultilineInput("release-branches")
-  const context = createContext(releaseBranches)
+  const context = createContext(targetBranch, releaseBranches)
   const result = await performAction(context, defaultTag)
 
   info(`Action Taken: ${result.action}`)

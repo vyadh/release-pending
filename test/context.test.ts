@@ -39,6 +39,14 @@ describe("createContext", () => {
     expect(octokitFactory.createOctokit).toHaveBeenCalledWith({ auth: "test-token" })
   })
 
+  it("override ref targetBranch", () => {
+    process.env.GITHUB_REF = "refs/heads/main"
+
+    const context = createContext("release")
+
+    expect(context.branch).toBe("release")
+  })
+
   it("extracts branch from refs/heads/ format", () => {
     process.env.GITHUB_REF = "refs/heads/feature/my-feature"
 
@@ -123,13 +131,13 @@ describe("createContext", () => {
   })
 
   it("uses provided releaseBranches when specified", () => {
-    const context = createContext(["main", "develop"])
+    const context = createContext("", ["main", "develop"])
 
     expect(context.releaseBranches).toEqual(["main", "develop"])
   })
 
   it("uses current branch as releaseBranches when empty array provided", () => {
-    const context = createContext([])
+    const context = createContext("", [])
 
     expect(context.releaseBranches).toEqual(["main"])
   })
