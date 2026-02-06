@@ -3,7 +3,12 @@ import { fetchPullRequests } from "@/data/pull-requests"
 import { createDraftRelease, type Release, updateRelease } from "@/data/release"
 import { generateReleaseNotes } from "@/data/release_notes"
 import { fetchReleases } from "@/data/releases"
-import { parseVersion, type Version, type VersionIncrement } from "@/versioning/version"
+import {
+  parseVersion,
+  sanitiseBranchPrerelease,
+  type Version,
+  type VersionIncrement
+} from "@/versioning/version"
 import { inferImpactFromPRs } from "@/versioning/version-bump-inference"
 
 export type NoUpdateResult = {
@@ -93,7 +98,7 @@ async function upsertDraftReleaseForReleaseBranch(
   }
 
   const versionIncrement = inferImpactFromPRs(pullRequests)
-  const nextVersion = calculateNextVersion(lastVersion, versionIncrement, defaultTag)
+  const nextVersion = inferNextVersion(lastVersion, versionIncrement, context, defaultTag)
 
   const { release, action } = await performUpsert(context, nextVersion, lastDraft, lastRelease)
 
@@ -142,8 +147,7 @@ async function inferVersionForFeatureBranch(context: Context, defaultTag: string
   const prs = [featurePR, ...mergedPullRequests]
   const titles = prs.map((pr) => pr.title)
   const versionIncrement = inferImpactFromPRs(prs)
-
-  const nextVersion = calculateNextVersion(lastVersion, versionIncrement, defaultTag)
+  const nextVersion = inferNextVersion(lastVersion, versionIncrement, context, defaultTag, context.branch)
 
   return {
     action: "version",
@@ -155,16 +159,16 @@ async function inferVersionForFeatureBranch(context: Context, defaultTag: string
   }
 }
 
-function calculateNextVersion(
+function inferNextVersion(
   lastVersion: Version | null,
   increment: VersionIncrement,
-  defaultTag: string
+  context: Context,
+  defaultTag: string,
+  branchIfFeature: string | null = null
 ): Version {
-  if (lastVersion) {
-    return lastVersion.bump(increment)
-  } else {
-    return parseVersion(defaultTag)
-  }
+  return (lastVersion ? lastVersion.bump(increment) : parseVersion(defaultTag))
+    .withPrerelease(branchIfFeature ? sanitiseBranchPrerelease(branchIfFeature) : [])
+    .withBuild([context.runNumber, context.runAttempt])
 }
 
 async function performUpsert(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { parseVersion } from "@/versioning/version"
+import { parseVersion, sanitiseBranchPrerelease } from "@/versioning/version"
 
 describe("basic version parsing", () => {
   it("should parse version with v prefix", () => {
@@ -10,7 +10,7 @@ describe("basic version parsing", () => {
     const version = parseVersion("2.3.4")
 
     expect(version.toString()).toBe("2.3.4")
-    expect(version.base).toBe("2.3.4")
+    expect(version.core).toBe("2.3.4")
     expect(version.build).toStrictEqual([])
     expect(version.prerelease).toStrictEqual([])
   })
@@ -19,7 +19,7 @@ describe("basic version parsing", () => {
     const version = parseVersion("2.3.4-alpha.1+build.number")
 
     expect(version.toString()).toBe("2.3.4-alpha.1+build.number")
-    expect(version.base).toBe("2.3.4")
+    expect(version.core).toBe("2.3.4")
     expect(version.prerelease).toStrictEqual(["alpha", "1"])
     expect(version.build).toStrictEqual(["build", "number"])
   })
@@ -37,6 +37,41 @@ describe("prereleases", () => {
 
     expect(version.prerelease).toStrictEqual(["pre", "2"])
     expect(version.toString()).toBe("1.0.0-pre.2")
+  })
+
+  it("should sanitise branch names for prerelease", () => {
+    expect(sanitiseBranchPrerelease("fix/some.thing/else")).toStrictEqual([
+      "branch",
+      "fix",
+      "some",
+      "thing",
+      "else"
+    ])
+    expect(sanitiseBranchPrerelease("1`2^3_4-5|6 7")).toStrictEqual(["branch", "1-2-3-4-5-6-7"])
+    expect(sanitiseBranchPrerelease("1../2--3///4")).toStrictEqual(["branch", "1", "2-3", "4"])
+    expect(sanitiseBranchPrerelease("")).toStrictEqual(["branch"])
+    expect(sanitiseBranchPrerelease(".1.2.")).toStrictEqual(["branch", "1", "2"])
+    expect(sanitiseBranchPrerelease("_1_2_")).toStrictEqual(["branch", "1-2"])
+    expect(sanitiseBranchPrerelease("``1_2``")).toStrictEqual(["branch", "1-2"])
+    expect(sanitiseBranchPrerelease("__")).toStrictEqual(["branch"])
+    expect(sanitiseBranchPrerelease("01.0.00.02.0a")).toStrictEqual(["branch", "1", "0", "0", "2", "0a"])
+    expect(sanitiseBranchPrerelease("1.2.3.4.5.6.7.8.9.10.11")).toStrictEqual([
+      "branch",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10"
+    ])
+    expect(sanitiseBranchPrerelease("123456789012345678901234567890123456789012345678901")).toStrictEqual([
+      "branch",
+      "12345678901234567890123456789012345678901234567890"
+    ])
   })
 })
 

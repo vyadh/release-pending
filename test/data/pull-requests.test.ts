@@ -25,7 +25,9 @@ describe("fetchPullRequests with IncomingPullRequestsParams", () => {
       owner: "test-owner",
       repo: "test-repo",
       branch: "main",
-      releaseBranches: ["main"]
+      releaseBranches: ["main"],
+      runNumber: "1",
+      runAttempt: "1"
     }
   })
 
@@ -246,7 +248,9 @@ describe("fetchPullRequests with OutgoingPullRequestsParams", () => {
       owner: "test-owner",
       repo: "test-repo",
       branch: "main",
-      releaseBranches: ["main"]
+      releaseBranches: ["main"],
+      runNumber: "1",
+      runAttempt: "1"
     }
   })
 

@@ -9,7 +9,7 @@ branding:
 inputs:
   default-tag:
     description: What tag to use for the release if no prior release is found.
-    required: true
+    required: false
     default: v0.0.0
   release-branches:
     description: List of branch names that are release branches (one per line). If not set, the current branch is used.
@@ -22,6 +22,8 @@ outputs:
     description: If a previous release was found, this is its version.
   next-version:
     description: The inferred or determined new version for the release.
+  next-version-full:
+    description: The next semver version, including pre-release and build metadata.
   release-id:
     description: The numeric identifier of the created or updated release.
 

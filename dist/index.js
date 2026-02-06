@@ -8799,12 +8799,16 @@ function createContext(releaseBranches = []) {
   const { owner, repo } = getRepositoryInfo();
   const branch = getBranch();
   const effectiveReleaseBranches = releaseBranches.length > 0 ? releaseBranches : [branch];
+  const runNumber = getRunNumber();
+  const runAttempt = getRunAttempt();
   return {
     octokit,
     owner,
     repo,
     branch,
-    releaseBranches: effectiveReleaseBranches
+    releaseBranches: effectiveReleaseBranches,
+    runNumber,
+    runAttempt
   };
 }
 function getGitHubToken() {
@@ -8838,6 +8842,20 @@ function getBranch() {
     return refName;
   }
   throw new Error(`Unable to determine branch from GITHUB_REF: ${ref}`);
+}
+function getRunNumber() {
+  const runNumber = process.env.GITHUB_RUN_NUMBER;
+  if (!runNumber) {
+    throw new Error("GITHUB_RUN_NUMBER environment variable is not set");
+  }
+  return runNumber;
+}
+function getRunAttempt() {
+  const runAttempt = process.env.GITHUB_RUN_ATTEMPT;
+  if (!runAttempt) {
+    throw new Error("GITHUB_RUN_ATTEMPT environment variable is not set");
+  }
+  return runAttempt;
 }
 
 // src/data/pull-requests.ts
@@ -9162,42 +9180,47 @@ function parseVersion(versionString) {
     semver.build
   );
 }
+function sanitiseBranchPrerelease(branch) {
+  const sanitised = branch.substring(0, 50).replace(/\//g, ".").replace(/[^0-9A-Za-z.-]+/g, "-").replace(/\.{2,}/g, ".").replace(/-{2,}/g, "-");
+  const parts = sanitised.split(".").map((part) => part.replace(/^0+(\d+)/, "$1")).map((part) => part.replace(/^-/, "")).map((part) => part.replace(/-$/, "")).filter((part) => part.length > 0).slice(0, 10);
+  return parts.length === 0 ? ["branch"] : ["branch", ...parts];
+}
 var Version = class _Version {
   /** This supports with or without a "v" prefix. */
-  constructor(base, prerelease = [], build = []) {
-    this.base = base;
+  constructor(core, prerelease = [], build = []) {
+    this.core = core;
     this.prerelease = prerelease;
     this.build = build;
   }
   get tag() {
-    return `v${this.base}`;
+    return `v${this.core}`;
   }
   withPrerelease(prerelease) {
-    return new _Version(this.base, prerelease, this.build);
+    return new _Version(this.core, prerelease, this.build);
   }
   withBuild(build) {
-    return new _Version(this.base, this.prerelease, build);
+    return new _Version(this.core, this.prerelease, build);
   }
   /**
-   * Note this only bumps the base version, it has no effect on prerelease or build metadata.
+   * Note this only bumps the core version, it has no effect on prerelease or build metadata.
    * The `node-semver` package implements subtle rules here, which are not part of the SemVer spec,
    * such as not bumping a prerelease on a `patch`, but bumping on `minor`.
-   * For now, we'll keep it simple and intuitive by always bumping the base version.
+   * For now, we'll keep it simple and intuitive by always bumping the core version.
    */
   bump(change) {
     if (change === "none") {
       return this;
     }
-    const next = (0, import_inc.default)(this.base, change);
+    const next = (0, import_inc.default)(this.core, change);
     if (next === null) {
-      throw new Error(`Unable to bump version '${this.base}' with change '${change}'`);
+      throw new Error(`Unable to bump version '${this.core}' with change '${change}'`);
     }
     return new _Version(next, this.prerelease, this.build);
   }
   toString() {
     const prerelease = this.prerelease.length > 0 ? `-${this.prerelease.join(".")}` : "";
     const build = this.build.length > 0 ? `+${this.build.join(".")}` : "";
-    return `${this.base}${prerelease}${build}`;
+    return `${this.core}${prerelease}${build}`;
   }
 };
 
@@ -9284,7 +9307,7 @@ async function upsertDraftReleaseForReleaseBranch(context, defaultTag) {
     };
   }
   const versionIncrement = inferImpactFromPRs(pullRequests);
-  const nextVersion = calculateNextVersion(lastVersion, versionIncrement, defaultTag);
+  const nextVersion = inferNextVersion(lastVersion, versionIncrement, context, defaultTag);
   const { release, action } = await performUpsert(context, nextVersion, lastDraft, lastRelease);
   return {
     action,
@@ -9321,7 +9344,7 @@ async function inferVersionForFeatureBranch(context, defaultTag) {
   const prs = [featurePR, ...mergedPullRequests];
   const titles = prs.map((pr) => pr.title);
   const versionIncrement = inferImpactFromPRs(prs);
-  const nextVersion = calculateNextVersion(lastVersion, versionIncrement, defaultTag);
+  const nextVersion = inferNextVersion(lastVersion, versionIncrement, context, defaultTag, context.branch);
   return {
     action: "version",
     lastRelease,
@@ -9331,12 +9354,8 @@ async function inferVersionForFeatureBranch(context, defaultTag) {
     version: nextVersion
   };
 }
-function calculateNextVersion(lastVersion, increment, defaultTag) {
-  if (lastVersion) {
-    return lastVersion.bump(increment);
-  } else {
-    return parseVersion(defaultTag);
-  }
+function inferNextVersion(lastVersion, increment, context, defaultTag, branchIfFeature = null) {
+  return (lastVersion ? lastVersion.bump(increment) : parseVersion(defaultTag)).withPrerelease(branchIfFeature ? sanitiseBranchPrerelease(branchIfFeature) : []).withBuild([context.runNumber, context.runAttempt]);
 }
 async function performUpsert(context, nextVersion, existingDraft, lastRelease) {
   if (existingDraft) {
@@ -9401,13 +9420,14 @@ function logResults(result) {
 ${result.pullRequestTitles.map((pr) => `  ${pr}`).join("\n")}`);
   info(`Last Version: ${result.lastVersion?.toString() ?? "(none)"}`);
   info(`Version Increment: ${result.versionIncrement}`);
-  info(`Next Version: ${result.version}`);
+  info(`Next Version: ${result.version.core} (${result.version})`);
 }
 function outputVersions(result) {
   if (result.lastVersion) {
     setOutput("last-version", result.lastVersion.toString());
   }
-  setOutput("next-version", result.version.toString());
+  setOutput("next-version", result.version.core);
+  setOutput("next-version-full", result.version.toString());
 }
 
 // src/index.ts

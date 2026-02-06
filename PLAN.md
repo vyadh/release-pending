@@ -2,31 +2,23 @@
 
 Roadmap for the project and ideas for future enhancements.
 
-## Initial Version
+## Next Version
 
-- Infers non-tracked branches are prerelease versions, populating semver appropriately.
-- Split version inference scheme into tracked (release) and untracked (feature) branches.
-- Infer from branch names for untracked branches, matching against simple patterns inferring fix or feature since the last release on the default branch. 
-  1. Finds the latest non-draft release for the current branch. This is considered the previous release.
-  2. Checks whether a version tag exists on the current commit.
-  3. Otherwise, infers a version bump from the branch name, matching against simple patterns inferring fix or feature since the last release on the default branch. If no bump can be inferred, the action bumps the fix version.
-  4. Adds prerelease semver data using the branch name.
-- In all cases, offer a fully populated semver version output with pre-release metadata when not on a release branch and build number from GitHub run and attempt.
+- Allow release branch patterns, such as `release/*.
+- Allow operating in both a "Continuous Delivery" mode that maintains draft releases on tracked branches, prerelease versions on untracked branches, and a "Managed Release" mode that creates final releases on tracked branches (promoting any user drafts), prerelease versions on untracked branches.
 
 
 ## Future
 
-### Create Final Releases
-
-- Allow operating in both a "Continuous Delivery" mode that maintains draft releases on tracked branches, prerelease versions on untracked branches, and a "Managed Release" mode that creates final releases on tracked branches (promoting any user drafts), prerelease versions on untracked branches.
-
 ### Version Inference
 
+- Include feature branch name in version bump inference. Matching against simple patterns inferring fix or feature since the last release on the default branch.
 - Respects last release indicator.
 - Respects an existing version tag against the current commit, overriding the version inference and used for the release tag.
 - Warn on PRs that are not CC.
 - Express an input on how far back in history to look for PRs but also commits if we ever do that. Expressed in months but perhaps best in a future-proof way, such as "6m".
 - Should work with PR labels too, which would work well with the way GitHub release notes work, see: https://github.com/bcoe/conventional-release-labels
+- If no bump can be inferred, the action (optionally?) bumps the fix version.
 
 
 ### Issue Tracking

@@ -14,7 +14,9 @@ describe("createDraftRelease", () => {
       owner: "test-owner",
       repo: "test-repo",
       branch: "main",
-      releaseBranches: ["main"]
+      releaseBranches: ["main"],
+      runNumber: "1",
+      runAttempt: "1"
     }
   })
 
@@ -85,7 +87,9 @@ describe("updateRelease", () => {
       owner: "test-owner",
       repo: "test-repo",
       branch: "main",
-      releaseBranches: ["main"]
+      releaseBranches: ["main"],
+      runNumber: "1",
+      runAttempt: "1"
     }
   })
 

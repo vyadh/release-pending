@@ -7,6 +7,8 @@ export interface Context {
   repo: string
   branch: string
   releaseBranches: string[]
+  runNumber: string
+  runAttempt: string
 }
 
 /**
@@ -17,6 +19,8 @@ export interface Context {
  * - GITHUB_REPOSITORY: Repository in "owner/repo" format
  * - GITHUB_REF: Git reference (e.g., "refs/heads/main")
  * - GITHUB_REF_NAME: Fallback for branch/tag name
+ * - GITHUB_RUN_NUMBER: Unique number for each workflow run
+ * - GITHUB_RUN_ATTEMPT: Unique number for each attempt of a workflow run
  *
  * @param releaseBranches - Optional list of release branch names. If empty, the current branch is used.
  * @throws {Error} If required environment variables are missing or invalid
@@ -27,13 +31,17 @@ export function createContext(releaseBranches: string[] = []): Context {
   const { owner, repo } = getRepositoryInfo()
   const branch = getBranch()
   const effectiveReleaseBranches = releaseBranches.length > 0 ? releaseBranches : [branch]
+  const runNumber = getRunNumber()
+  const runAttempt = getRunAttempt()
 
   return {
     octokit: octokit,
     owner: owner,
     repo: repo,
     branch: branch,
-    releaseBranches: effectiveReleaseBranches
+    releaseBranches: effectiveReleaseBranches,
+    runNumber: runNumber,
+    runAttempt: runAttempt
   }
 }
 
@@ -76,4 +84,20 @@ function getBranch(): string {
   }
 
   throw new Error(`Unable to determine branch from GITHUB_REF: ${ref}`)
+}
+
+function getRunNumber(): string {
+  const runNumber = process.env.GITHUB_RUN_NUMBER
+  if (!runNumber) {
+    throw new Error("GITHUB_RUN_NUMBER environment variable is not set")
+  }
+  return runNumber
+}
+
+function getRunAttempt(): string {
+  const runAttempt = process.env.GITHUB_RUN_ATTEMPT
+  if (!runAttempt) {
+    throw new Error("GITHUB_RUN_ATTEMPT environment variable is not set")
+  }
+  return runAttempt
 }

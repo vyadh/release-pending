@@ -16,6 +16,8 @@ describe("createContext", () => {
     process.env.GITHUB_TOKEN = "test-token"
     process.env.GITHUB_REPOSITORY = "test-owner/test-repo"
     process.env.GITHUB_REF = "refs/heads/main"
+    process.env.GITHUB_RUN_NUMBER = "1"
+    process.env.GITHUB_RUN_ATTEMPT = "1"
   })
 
   afterEach(() => {
@@ -30,7 +32,9 @@ describe("createContext", () => {
       owner: "test-owner",
       repo: "test-repo",
       branch: "main",
-      releaseBranches: ["main"]
+      releaseBranches: ["main"],
+      runNumber: "1",
+      runAttempt: "1"
     })
     expect(octokitFactory.createOctokit).toHaveBeenCalledWith({ auth: "test-token" })
   })
@@ -134,5 +138,44 @@ describe("createContext", () => {
     const context = createContext()
 
     expect(context.releaseBranches).toEqual(["main"])
+  })
+
+  it("reads runNumber from environment variable", () => {
+    process.env.GITHUB_RUN_NUMBER = "42"
+
+    const context = createContext()
+
+    expect(context.runNumber).toBe("42")
+  })
+
+  it("reads runAttempt from environment variable", () => {
+    process.env.GITHUB_RUN_ATTEMPT = "3"
+
+    const context = createContext()
+
+    expect(context.runAttempt).toBe("3")
+  })
+
+  it("reads both runNumber and runAttempt when set", () => {
+    process.env.GITHUB_RUN_NUMBER = "123"
+    process.env.GITHUB_RUN_ATTEMPT = "2"
+
+    const context = createContext()
+
+    expect(context.runNumber).toBe("123")
+    expect(context.runAttempt).toBe("2")
+  })
+
+  it("throws error when GITHUB_RUN_NUMBER is not set", () => {
+    delete process.env.GITHUB_RUN_NUMBER
+
+    expect(() => createContext()).toThrow("GITHUB_RUN_NUMBER environment variable is not set")
+  })
+
+  it("throws error when GITHUB_RUN_ATTEMPT is not set", () => {
+    process.env.GITHUB_RUN_NUMBER = "1"
+    delete process.env.GITHUB_RUN_ATTEMPT
+
+    expect(() => createContext()).toThrow("GITHUB_RUN_ATTEMPT environment variable is not set")
   })
 })

@@ -7,7 +7,9 @@ vi.mock("@/context", () => ({
     owner: "test-owner",
     repo: "test-repo",
     branch: "main",
-    releaseBranches: ["main"]
+    releaseBranches: ["main"],
+    runNumber: "1",
+    runAttempt: "1"
   })
 }))
 
@@ -77,7 +79,9 @@ describe("main", () => {
         octokit: {},
         owner: "test-owner",
         repo: "test-repo",
-        releaseBranches: ["main"]
+        releaseBranches: ["main"],
+        runNumber: "1",
+        runAttempt: "1"
       },
       "v0.1.0"
     )
@@ -121,7 +125,7 @@ describe("main", () => {
     expect(info).toHaveBeenCalledWith("Last Release: v1.0.0")
     expect(info).toHaveBeenCalledWith("Current Draft: (none)")
     expect(info).toHaveBeenCalledWith("Version Increment: minor")
-    expect(info).toHaveBeenCalledWith("Next Version: 1.1.0")
+    expect(info).toHaveBeenCalledWith("Next Version: 1.1.0 (1.1.0)")
     expect(info).toHaveBeenCalledWith(expect.stringContaining("Updated Draft: v1.1.0"))
     expect(core.setOutput).toHaveBeenCalledWith("last-version", "1.0.0")
     expect(core.setOutput).toHaveBeenCalledWith("next-version", "1.1.0")
@@ -181,7 +185,7 @@ describe("main", () => {
       lastVersion: parseVersion("v1.0.0"),
       pullRequestTitles: ["feat: new feature"],
       versionIncrement: "minor",
-      version: parseVersion("v1.1.0")
+      version: parseVersion("v1.1.0").withPrerelease(["branch", "feature"])
     })
     vi.spyOn(core, "getInput").mockReturnValue("v0.1.0")
     vi.spyOn(core, "getMultilineInput").mockReturnValue(["main"])
@@ -195,22 +199,35 @@ describe("main", () => {
     expect(info).toHaveBeenCalledWith("Last Release: v1.0.0")
     expect(info).toHaveBeenCalledWith("Last Version: 1.0.0")
     expect(info).toHaveBeenCalledWith("Version Increment: minor")
-    expect(info).toHaveBeenCalledWith("Next Version: 1.1.0")
+    expect(info).toHaveBeenCalledWith("Next Version: 1.1.0 (1.1.0-branch.feature)")
 
     expect(setOutput).toHaveBeenCalledWith("action", "version")
     expect(setOutput).toHaveBeenCalledWith("last-version", "1.0.0")
     expect(setOutput).toHaveBeenCalledWith("next-version", "1.1.0")
+    expect(setOutput).toHaveBeenCalledWith("next-version-full", "1.1.0-branch.feature")
     expect(setOutput).not.toHaveBeenCalledWith("release-id", expect.anything())
   })
 
   it("does not output release-id for feature branch version action", async () => {
+    vi.mocked(contextModule.createContext).mockImplementationOnce(() => {
+      return {
+        octokit: {},
+        owner: "test-owner",
+        repo: "test-repo",
+        branch: "feature",
+        releaseBranches: ["main"],
+        runNumber: "1",
+        runAttempt: "1"
+      }
+    })
+
     vi.mocked(coreModule.performAction).mockResolvedValue({
       action: "version",
       lastRelease: null,
       lastVersion: null,
       pullRequestTitles: ["feat: new feature"],
       versionIncrement: "minor",
-      version: parseVersion("v0.1.0")
+      version: parseVersion("v0.1.0").withPrerelease(["branch", "feature"])
     })
     vi.spyOn(core, "getInput").mockReturnValue("v0.1.0")
     vi.spyOn(core, "getMultilineInput").mockReturnValue(["main"])
@@ -221,6 +238,7 @@ describe("main", () => {
 
     expect(setOutput).toHaveBeenCalledWith("action", "version")
     expect(setOutput).toHaveBeenCalledWith("next-version", "0.1.0")
+    expect(setOutput).toHaveBeenCalledWith("next-version-full", "0.1.0-branch.feature")
     expect(setOutput).not.toHaveBeenCalledWith("release-id", expect.anything())
     expect(setOutput).not.toHaveBeenCalledWith("last-version", expect.anything())
   })
