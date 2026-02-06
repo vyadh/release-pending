@@ -1,7 +1,7 @@
 # Operation
 
 For a release branch:
-1. Finds the latest non-draft release for the current branch. This is considered the previous release.
+1. Finds the latest non-draft release for the current branch, or `target-branch` if specified. This is considered the previous release.
 2. Finds all the PRs merged to the branch since the previous release.
 3. Infers a version bump based on PR titles in conventional commit style.
 4. Finds the last draft release for this branch (using `target_commitish`).

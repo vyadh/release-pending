@@ -8793,11 +8793,11 @@ function createOctokit(config) {
 }
 
 // src/context.ts
-function createContext(releaseBranches = []) {
+function createContext(targetBranch = "", releaseBranches = []) {
   const token = getGitHubToken();
   const octokit = createOctokit({ auth: token });
   const { owner, repo } = getRepositoryInfo();
-  const branch = getBranch();
+  const branch = getBranch(targetBranch);
   const effectiveReleaseBranches = releaseBranches.length > 0 ? releaseBranches : [branch];
   const runNumber = getRunNumber();
   const runAttempt = getRunAttempt();
@@ -8829,7 +8829,10 @@ function getRepositoryInfo() {
   }
   return { owner, repo };
 }
-function getBranch() {
+function getBranch(targetBranch) {
+  if (targetBranch) {
+    return targetBranch;
+  }
   const ref = process.env.GITHUB_REF;
   if (!ref) {
     throw new Error("GITHUB_REF environment variable is not set");
@@ -9392,8 +9395,9 @@ async function main() {
 }
 async function run() {
   const defaultTag = getInput("default-tag");
+  const targetBranch = getInput("target-branch");
   const releaseBranches = getMultilineInput("release-branches");
-  const context = createContext(releaseBranches);
+  const context = createContext(targetBranch, releaseBranches);
   const result = await performAction(context, defaultTag);
   info(`Action Taken: ${result.action}`);
   setOutput("action", result.action);

@@ -64,6 +64,22 @@ describe("main", () => {
     })
   })
 
+  it("uses target-branch input when provided", async () => {
+    const getInputSpy = vi.spyOn(core, "getInput")
+    getInputSpy.mockImplementation((name: string) => {
+      if (name === "default-tag") return "v0.1.0"
+      if (name === "target-branch") return "release"
+      return ""
+    })
+    vi.spyOn(core, "info").mockImplementation(() => {})
+    vi.spyOn(core, "setOutput").mockImplementation(() => {})
+
+    await main()
+
+    expect(getInputSpy).toHaveBeenCalledWith("target-branch")
+    expect(contextModule.createContext).toHaveBeenCalledWith("release", expect.anything())
+  })
+
   it("reads default-tag input and calls upsertDraftRelease", async () => {
     const getInput = vi.spyOn(core, "getInput").mockReturnValue("v0.1.0")
     vi.spyOn(core, "info").mockImplementation(() => {})
