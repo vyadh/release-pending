@@ -13,6 +13,7 @@ jobs:
 
     permissions:
       contents: write
+      pull-requests: read
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -47,12 +48,22 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Commit and push release
+      - name: Update GitHub Release
+        id: release
+        uses: ./
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # We're using a dedicated branch for the releases code in `dist`
+          target-branch: main
+
+      - name: Commit and push release branch
+        if: steps.release.outputs.action == 'created' || steps.release.outputs.action == 'updated'
         run: |
           git add --force dist/index.js
           if git diff --staged --quiet; then
             echo "No changes. Skipping."
           else
-            git commit --amend --no-edit
+            git commit --amend --message "chore: release v${{ steps.release.outputs.next-version }}"
             git push origin release
           fi

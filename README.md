@@ -61,7 +61,10 @@ Note: `contents: write` may be required to read draft releases.
 Maintain releases when run on release branches.
 
 ```yaml
-uses: vyadh/release-party@v1
+- uses: vyadh/release-party@v1
+  env:
+    # Required to access the GitHub API
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ### Extended Example
@@ -70,6 +73,8 @@ Customise the default tag and allow additionally running against feature branche
 
 ```yaml
 - uses: vyadh/release-party@v1
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   with:
     default-tag: v0.1.0
     release-branches: |

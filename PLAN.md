@@ -6,7 +6,9 @@ Roadmap for the project and ideas for future enhancements.
 
 - Allow release branch patterns, such as `release/*.
 - Allow operating in both a "Continuous Delivery" mode that maintains draft releases on tracked branches, prerelease versions on untracked branches, and a "Managed Release" mode that creates final releases on tracked branches (promoting any user drafts), prerelease versions on untracked branches.
-
+- Should support the ability to attach build assets.
+- Optional information as github build summary report.
+- The action returning created/updated is a bit redundant, return upserted.
 
 ## Future
 
@@ -20,13 +22,12 @@ Roadmap for the project and ideas for future enhancements.
 - Should work with PR labels too, which would work well with the way GitHub release notes work, see: https://github.com/bcoe/conventional-release-labels
 - If no bump can be inferred, the action (optionally?) bumps the fix version.
 
-
 ### Issue Tracking
 
 - Issue tracker support for auto generated issue links that are not GitHub (turning ids into links).
 
 
-## Ideas
+## Other Ideas
 
 - Build on a branch where there is an open PR to a release branch: Inherit the previous release and version of the release branch. Generate the new version from the PR title. Mark as pre-release.
 - Build on a feature branch: Use a stub/default version. Mark as pre-release. If we cannot determine by branch pattern, walk the commit graph to find the last version, and derive new version using CC on the commits, but since this might run on every push, we'd need to evaluate the cost first (or cache it in some way).
